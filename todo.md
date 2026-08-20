@@ -9,3 +9,11 @@
 - [x] Generate and apply custom Atlas app branding assets.
 - [x] Validate TypeScript and test the principal local interaction flows.
 - [x] Capture final project checkpoint and deliver the completed mobile prototype.
+- [x] Define the Supabase-backed operational data model and role-permission matrix.
+- [x] Add deployment-time Supabase environment configuration guidance and runtime readiness checks.
+- [x] Connect live workspace records and enforce role-aware access states.
+- [x] Add native camera QR scanning with offline-first event queueing and sync feedback.
+- [x] Ground intelligence recommendations in operational records with evidence references.
+- [x] Add authorization-controlled recommendation approval workflows.
+- [x] Validate live-data, role, offline, scan, intelligence, and approval paths.
+- [ ] Capture and deliver the enhanced Atlas project checkpoint.

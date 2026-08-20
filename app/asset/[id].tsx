@@ -4,12 +4,17 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Icon, IconAction, LinkedRecord, PrimaryButton, SectionTitle, SeverityPill, Surface } from "@/components/atlas-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { assets } from "@/lib/atlas-data";
+import { useAtlasWorkspace } from "@/hooks/use-atlas-live";
+import { mapLiveAsset, type LiveAtlasRecord } from "@/lib/atlas-live-mappers";
 import { useAtlas } from "@/lib/atlas-store";
 
 export default function AssetDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const asset = assets.find((item) => item.id === id) ?? assets[0];
+  const workspace = useAtlasWorkspace();
+  const liveAsset = workspace.data?.status === "ready" ? (workspace.data.assets as LiveAtlasRecord[]).find((item) => item.id === id) : undefined;
+  const asset = assets.find((item) => item.id === id) ?? (liveAsset ? mapLiveAsset(liveAsset) : undefined);
   const { createTask, notify } = useAtlas();
+  if (!asset) return <ScreenContainer className="flex-1" edges={["top", "left", "right", "bottom"]} containerClassName="bg-background"><View style={styles.missing}><IconAction name="arrow-back" label="Back" onPress={() => router.back()} /><View style={styles.missingIcon}><Icon name="inventory" color="#F5B84B" size={26} /></View><Text style={styles.missingTitle}>Asset context is not available</Text><Text style={styles.missingBody}>The scan was recorded locally, but this identity is not in your role-scoped workspace yet. Synchronize when online or verify the asset ID with your supervisor.</Text></View></ScreenContainer>;
   const severity = asset.status === "Attention" ? "attention" : asset.status === "Stopped" ? "critical" : "good" as const;
   const assetIcon = asset.type.includes("Vehicle") ? "local-shipping" : asset.type.includes("housing") ? "home-work" : "precision-manufacturing";
   return <ScreenContainer className="flex-1" edges={["top", "left", "right", "bottom"]} containerClassName="bg-background"><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -59,4 +64,8 @@ const styles = StyleSheet.create({
   eventText: { color: "#D4E0E2", fontSize: 13, fontWeight: "700", lineHeight: 18 },
   eventMeta: { color: "#80949B", fontSize: 11 },
   related: { gap: 9 },
+  missing: { alignItems: "center", flex: 1, gap: 16, justifyContent: "center", paddingHorizontal: 28 },
+  missingIcon: { alignItems: "center", backgroundColor: "#3A2C16", borderRadius: 18, height: 62, justifyContent: "center", width: 62 },
+  missingTitle: { color: "#E8F0F1", fontSize: 21, fontWeight: "800", textAlign: "center" },
+  missingBody: { color: "#A4B6BA", fontSize: 13, lineHeight: 20, textAlign: "center" },
 });

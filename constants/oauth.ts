@@ -1,5 +1,5 @@
-import * as Linking from "expo-linking";
 import * as ReactNative from "react-native";
+import * as Linking from "expo-linking";
 
 // Extract scheme from bundle ID (last segment timestamp, prefixed with "manus")
 // e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"

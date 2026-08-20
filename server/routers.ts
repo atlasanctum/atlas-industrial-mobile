@@ -1,7 +1,9 @@
 import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { askAtlasIntelligence, decideAtlasRecommendation, getAtlasWorkspace, syncAtlasEvents } from "./atlas-service";
+import { z } from "zod";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -16,13 +18,32 @@ export const appRouter = router({
       } as const;
     }),
   }),
-
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  atlas: router({
+    workspace: protectedProcedure.query(({ ctx }) => getAtlasWorkspace(ctx.user.id)),
+    syncEvents: protectedProcedure
+      .input(z.object({
+        events: z.array(z.object({
+          clientEventId: z.string().uuid(),
+          eventType: z.enum(["asset_scanned", "work_started", "work_completed", "inspection_recorded", "issue_reported", "evidence_captured"]),
+          entityType: z.enum(["asset", "work_item", "inspection", "issue"]),
+          entityId: z.string().min(1).max(256),
+          occurredAt: z.string().datetime(),
+          facilityId: z.string().uuid().optional(),
+          payload: z.record(z.string(), z.unknown()),
+        })).min(1).max(50),
+      }))
+      .mutation(({ ctx, input }) => syncAtlasEvents(ctx.user.id, input.events)),
+    askIntelligence: protectedProcedure
+      .input(z.object({ question: z.string().trim().min(4).max(1000) }))
+      .mutation(({ ctx, input }) => askAtlasIntelligence(ctx.user.id, input.question)),
+    decideRecommendation: protectedProcedure
+      .input(z.object({
+        recommendationId: z.string().uuid(),
+        decision: z.enum(["approved", "rejected"]),
+        note: z.string().trim().max(1000).optional(),
+      }))
+      .mutation(({ ctx, input }) => decideAtlasRecommendation(ctx.user.id, input.recommendationId, input.decision, input.note)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { FloatingAct, OperationalCue } from "@/components/atlas-runtime";
 import { AppMark, Icon, IconAction, LinkedRecord, MetricCard, PrimaryButton, SectionTitle, SeverityPill, Surface } from "@/components/atlas-ui";
+import { LiveWorkspaceStatus } from "@/components/live-workspace-status";
 import { commandBrief } from "@/lib/atlas-data";
 import { useAtlas } from "@/lib/atlas-store";
 import { ScreenContainer } from "@/components/screen-container";
@@ -31,6 +32,8 @@ export default function CommandScreen() {
           <View style={styles.healthLine}><View style={[styles.healthSegment, { flex: 7, backgroundColor: "#21D4C2" }]} /><View style={[styles.healthSegment, { flex: 2, backgroundColor: "#F5B84B" }]} /><View style={[styles.healthSegment, { flex: 1, backgroundColor: "#FF6B57" }]} /></View>
           <View style={styles.healthLegend}><Text style={styles.healthSmall}>14 healthy signals</Text><Text style={styles.healthSmall}>1 critical constraint</Text></View>
         </Surface>
+
+        <LiveWorkspaceStatus />
 
         <View style={styles.metricRow}><MetricCard label="Decision velocity" value={commandBrief.velocity} detail={commandBrief.velocityDetail} icon="bolt" tone="good" /><MetricCard label="Active work" value={String(activeTasks.length)} detail="Tasks requiring coordination" icon="assignment" tone="attention" /></View>
 

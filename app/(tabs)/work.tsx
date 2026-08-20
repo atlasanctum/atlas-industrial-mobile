@@ -6,23 +6,27 @@ import { FloatingAct } from "@/components/atlas-runtime";
 import { Icon, IconAction, LinkedRecord, SectionTitle, SeverityPill, Surface } from "@/components/atlas-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAtlas } from "@/lib/atlas-store";
+import { useAtlasWorkspace } from "@/hooks/use-atlas-live";
+import { mapLiveWorkItem, type LiveAtlasRecord } from "@/lib/atlas-live-mappers";
 
 const filters = ["All", "Mine", "Urgent", "In progress"] as const;
 type Filter = (typeof filters)[number];
 
 export default function WorkScreen() {
   const { tasks, notify } = useAtlas();
+  const workspace = useAtlasWorkspace();
   const [filter, setFilter] = useState<Filter>("All");
-  const filtered = useMemo(() => tasks.filter((task) => {
+  const sourceTasks = workspace.data?.status === "ready" ? (workspace.data.workItems as LiveAtlasRecord[]).map(mapLiveWorkItem) : tasks;
+  const filtered = useMemo(() => sourceTasks.filter((task) => {
     if (filter === "Mine") return task.owner === "You";
     if (filter === "Urgent") return task.severity === "critical" || task.severity === "high";
     if (filter === "In progress") return task.status === "In progress";
     return task.status !== "Completed";
-  }), [filter, tasks]);
+  }), [filter, sourceTasks]);
 
   return <ScreenContainer className="flex-1" containerClassName="bg-background"><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
     <View style={styles.header}><View><Text style={styles.eyebrow}>Execution layer</Text><Text style={styles.title}>Work</Text></View><IconAction name="tune" label="Filter work" onPress={() => notify("Work is ordered by operational consequence.")} /></View>
-    <Surface style={styles.shiftCard}><View style={styles.shiftTop}><View style={styles.shiftIcon}><Icon name="schedule" size={20} color="#21D4C2" /></View><View style={styles.shiftInfo}><Text style={styles.shiftLabel}>Your current shift</Text><Text style={styles.shiftTitle}>North Plant · Shift A</Text></View><Text style={styles.shiftCount}>{tasks.filter((task) => task.owner === "You" && task.status !== "Completed").length} assigned</Text></View><Text style={styles.shiftNote}>Work stays connected to its asset, procedure, resources, evidence, and outcome.</Text></Surface>
+    <Surface style={styles.shiftCard}><View style={styles.shiftTop}><View style={styles.shiftIcon}><Icon name="schedule" size={20} color="#21D4C2" /></View><View style={styles.shiftInfo}><Text style={styles.shiftLabel}>{workspace.data?.status === "ready" ? "Live role-scoped work" : "Your current shift"}</Text><Text style={styles.shiftTitle}>North Plant · Shift A</Text></View><Text style={styles.shiftCount}>{sourceTasks.filter((task) => task.owner === "You" && task.status !== "Completed").length} assigned</Text></View><Text style={styles.shiftNote}>Work stays connected to its asset, procedure, resources, evidence, and outcome.</Text></Surface>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{filters.map((item) => <Pressable key={item} onPress={() => setFilter(item)} style={({ pressed }) => [styles.filter, filter === item && styles.filterActive, pressed && { opacity: 0.75 }]}><Text style={[styles.filterText, filter === item && styles.filterTextActive]}>{item}</Text></Pressable>)}</ScrollView>
     <SectionTitle eyebrow="Priority queue" title={`${filtered.length} active items`} />
     <View style={styles.workList}>{filtered.map((task) => <Pressable key={task.id} onPress={() => router.push({ pathname: "/task/[id]", params: { id: task.id } })} style={({ pressed }) => [styles.taskCard, pressed && styles.pressed]}><View style={styles.taskTop}><SeverityPill severity={task.severity} /><Text style={styles.id}>{task.id}</Text></View><Text style={styles.taskTitle}>{task.title}</Text><Text style={styles.taskMeta}>{task.type} · {task.location}</Text><View style={styles.taskFooter}><View style={styles.status}><View style={[styles.statusDot, { backgroundColor: task.status === "In progress" ? "#4E9BFF" : task.status === "Blocked" ? "#FF6B57" : "#F5B84B" }]} /><Text style={styles.statusText}>{task.status}</Text></View><Text style={styles.due}>{task.due}</Text></View></Pressable>)}</View>

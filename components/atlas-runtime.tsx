@@ -40,8 +40,8 @@ export function FloatingAct() {
     if (!selected) return;
     if (selected === "scan") {
       close();
-      router.push("/asset/MX-14");
-      notify("Machine 14 identified from your scan.", "success");
+      router.push("/scan");
+      notify("Scanner opened with field event recording ready.");
       return;
     }
     if (selected === "ask") {

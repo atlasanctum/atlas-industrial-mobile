@@ -4,13 +4,24 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Icon, IconAction, PrimaryButton, SectionTitle, SeverityPill, Surface } from "@/components/atlas-ui";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAtlas } from "@/lib/atlas-store";
+import { useAtlasEventQueue, useAtlasWorkspace } from "@/hooks/use-atlas-live";
+import { mapLiveWorkItem, type LiveAtlasRecord } from "@/lib/atlas-live-mappers";
 
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { tasks, updateTaskStatus, notify } = useAtlas();
-  const task = tasks.find((item) => item.id === id) ?? tasks[0];
+  const workspace = useAtlasWorkspace();
+  const queue = useAtlasEventQueue();
+  const liveTask = workspace.data?.status === "ready" ? (workspace.data.workItems as LiveAtlasRecord[]).find((item) => item.id === id) : undefined;
+  const task = tasks.find((item) => item.id === id) ?? (liveTask ? mapLiveWorkItem(liveTask) : undefined);
+  if (!task) return <ScreenContainer className="flex-1" edges={["top", "left", "right", "bottom"]} containerClassName="bg-background"><View style={styles.missing}><IconAction name="arrow-back" label="Back" onPress={() => router.back()} /><Text style={styles.missingTitle}>Work context is not available</Text><Text style={styles.missingBody}>This work item is outside your current role scope or has not synchronized to the workspace yet.</Text></View></ScreenContainer>;
   const completed = task.status === "Completed";
-  const start = () => updateTaskStatus(task.id, task.status === "In progress" ? "Completed" : "In progress");
+  const start = async () => {
+    const targetStatus = task.status === "In progress" ? "Completed" : "In progress";
+    updateTaskStatus(task.id, targetStatus);
+    await queue.enqueue({ eventType: targetStatus === "Completed" ? "work_completed" : "work_started", entityType: "work_item", entityId: task.id, payload: { status: targetStatus, source: "work_detail" } });
+    notify(queue.online ? "Work-state event recorded and will synchronize." : "Work-state event queued safely for synchronization.", "success");
+  };
   return <ScreenContainer className="flex-1" edges={["top", "left", "right", "bottom"]} containerClassName="bg-background"><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
     <View style={styles.header}><IconAction name="arrow-back" label="Back" onPress={() => router.back()} /><Text style={styles.headerTitle}>Work detail</Text><IconAction name="more-horiz" label="More work options" onPress={() => notify("Work transitions remain traceable within the local prototype state.")} /></View>
     <Surface style={styles.hero}><View style={styles.heroTop}><SeverityPill severity={task.severity} /><Text style={styles.taskId}>{task.id}</Text></View><Text style={styles.taskTitle}>{task.title}</Text><Text style={styles.taskMeta}>{task.type} · {task.location}</Text><View style={styles.statusRow}><View style={[styles.statusIcon, { backgroundColor: completed ? "#173B35" : task.status === "In progress" ? "#1C3245" : "#3A2C16" }]}><Icon name={completed ? "check-circle" : task.status === "In progress" ? "play-circle" : "schedule"} color={completed ? "#21D4C2" : task.status === "In progress" ? "#78B6FF" : "#F5B84B"} size={18} /></View><View><Text style={styles.statusLabel}>WORK STATUS</Text><Text style={styles.statusValue}>{task.status}</Text></View><Text style={styles.due}>{task.due}</Text></View></Surface>
@@ -56,4 +67,7 @@ const styles = StyleSheet.create({
   actions: { gap: 9 },
   completed: { alignItems: "center", flexDirection: "row", gap: 9, justifyContent: "center", minHeight: 48, paddingHorizontal: 16 },
   completedText: { color: "#91E7DC", fontSize: 13, fontWeight: "800" },
+  missing: { alignItems: "center", flex: 1, gap: 14, justifyContent: "center", paddingHorizontal: 30 },
+  missingTitle: { color: "#E8F0F1", fontSize: 20, fontWeight: "800", textAlign: "center" },
+  missingBody: { color: "#A4B6BA", fontSize: 13, lineHeight: 20, textAlign: "center" },
 });
