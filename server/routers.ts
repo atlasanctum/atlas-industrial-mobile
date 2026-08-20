@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { askAtlasIntelligence, decideAtlasRecommendation, getAtlasWorkspace, syncAtlasEvents } from "./atlas-service";
+import { askAtlasIntelligence, completeOperationalControl, decideAtlasRecommendation, getAtlasWorkspace, syncAtlasEvents, uploadAtlasEvidence } from "./atlas-service";
 import { z } from "zod";
 
 export const appRouter = router({
@@ -33,6 +33,12 @@ export const appRouter = router({
         })).min(1).max(50),
       }))
       .mutation(({ ctx, input }) => syncAtlasEvents(ctx.user.id, input.events)),
+    completeControl: protectedProcedure
+      .input(z.object({ controlId: z.string().uuid(), evidenceEventIds: z.array(z.string().uuid()).max(20).default([]) }))
+      .mutation(({ ctx, input }) => completeOperationalControl(ctx.user.id, input.controlId, input.evidenceEventIds)),
+    uploadEvidence: protectedProcedure
+      .input(z.object({ id: z.string().uuid(), eventClientId: z.string().uuid(), facilityId: z.string().uuid().optional(), entityType: z.enum(["asset", "work_item", "inspection", "issue"]), entityId: z.string().min(1).max(256), contentType: z.string().min(3).max(120), filename: z.string().min(1).max(255), sizeBytes: z.number().int().positive().max(16 * 1024 * 1024), base64: z.string().min(4).max(24 * 1024 * 1024) }))
+      .mutation(({ ctx, input }) => uploadAtlasEvidence(ctx.user.id, input)),
     askIntelligence: protectedProcedure
       .input(z.object({ question: z.string().trim().min(4).max(1000) }))
       .mutation(({ ctx, input }) => askAtlasIntelligence(ctx.user.id, input.question)),

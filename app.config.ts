@@ -93,6 +93,13 @@ const config: ExpoConfig = {
       },
     ],
     [
+      "expo-image-picker",
+      {
+        "cameraPermission": "Allow $(PRODUCT_NAME) to capture verified industrial evidence.",
+        "photosPermission": "Allow $(PRODUCT_NAME) to attach evidence from your photo library.",
+      },
+    ],
+    [
       "expo-audio",
       {
         microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",

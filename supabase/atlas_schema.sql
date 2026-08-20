@@ -95,10 +95,55 @@ create table if not exists public.atlas_approvals (
   decided_at timestamptz not null default now()
 );
 
+create table if not exists public.atlas_operational_controls (
+  id uuid primary key default gen_random_uuid(),
+  facility_id uuid references public.atlas_facilities(id),
+  asset_id uuid references public.atlas_assets(id),
+  domain text not null check (domain in ('production', 'inventory', 'quality', 'safety')),
+  title text not null,
+  context text not null,
+  detail text not null,
+  status text not null default 'ready' check (status in ('ready', 'attention', 'blocked', 'verified')),
+  severity text not null default 'normal' check (severity in ('normal', 'attention', 'high', 'critical')),
+  required_evidence boolean not null default false,
+  data jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.atlas_evidence (
+  id uuid primary key default gen_random_uuid(),
+  event_client_id uuid not null,
+  actor_member_id uuid not null references public.atlas_members(id),
+  facility_id uuid references public.atlas_facilities(id),
+  entity_type text not null,
+  entity_id text not null,
+  storage_key text not null unique,
+  storage_url text not null,
+  content_type text not null,
+  filename text not null,
+  size_bytes integer not null check (size_bytes > 0 and size_bytes <= 16777216),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.atlas_telemetry (
+  id uuid primary key default gen_random_uuid(),
+  asset_id uuid not null references public.atlas_assets(id),
+  facility_id uuid references public.atlas_facilities(id),
+  metric text not null check (metric in ('temperature_c', 'vibration_mm_s', 'runtime_hours', 'pressure_bar')),
+  value numeric not null,
+  observed_at timestamptz not null,
+  source text not null default 'integration',
+  created_at timestamptz not null default now()
+);
+
 create index if not exists atlas_assets_facility_idx on public.atlas_assets(facility_id);
 create index if not exists atlas_work_items_facility_idx on public.atlas_work_items(facility_id, updated_at desc);
 create index if not exists atlas_events_facility_occurred_idx on public.atlas_events(facility_id, occurred_at desc);
 create index if not exists atlas_recommendations_facility_created_idx on public.atlas_recommendations(facility_id, created_at desc);
+create index if not exists atlas_controls_facility_status_idx on public.atlas_operational_controls(facility_id, status, updated_at desc);
+create index if not exists atlas_evidence_event_idx on public.atlas_evidence(event_client_id, created_at desc);
+create index if not exists atlas_telemetry_asset_observed_idx on public.atlas_telemetry(asset_id, observed_at desc);
 
 alter table public.atlas_members enable row level security;
 alter table public.atlas_facilities enable row level security;
@@ -107,6 +152,9 @@ alter table public.atlas_work_items enable row level security;
 alter table public.atlas_events enable row level security;
 alter table public.atlas_recommendations enable row level security;
 alter table public.atlas_approvals enable row level security;
+alter table public.atlas_operational_controls enable row level security;
+alter table public.atlas_evidence enable row level security;
+alter table public.atlas_telemetry enable row level security;
 
 -- Atlas uses a server-only service-role key. Do not add anonymous policies unless
 -- a separate client-side data access design has been reviewed and approved.

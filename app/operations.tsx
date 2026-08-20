@@ -1,53 +1,56 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { FloatingAct } from "@/components/atlas-runtime";
-import { Icon, IconAction, LinkedRecord, PrimaryButton, SectionTitle, SeverityPill, Surface } from "@/components/atlas-ui";
+import { Icon, IconAction, PrimaryButton, SectionTitle, SeverityPill, Surface } from "@/components/atlas-ui";
 import { ScreenContainer } from "@/components/screen-container";
+import { useAtlasWorkspace } from "@/hooks/use-atlas-live";
 import { inventoryItems, productionPulse, qualityControls, safetyControls } from "@/lib/atlas-data";
 import { useAtlas } from "@/lib/atlas-store";
+import { trpc } from "@/lib/trpc";
+import type { AtlasOperationalControl } from "@/shared/atlas-domain";
+
+type DisplayControl = Omit<Pick<AtlasOperationalControl, "id" | "domain" | "title" | "context" | "detail" | "requiredEvidence">, "severity"> & { severity: "normal" | "attention" | "high" | "critical" | "good"; status: string; live: boolean };
+
+function badgeSeverity(status: string, severity: DisplayControl["severity"]) { return status === "verified" ? "good" as const : severity; }
+function controlLabel(status: string) { return status === "verified" ? "Verified" : status === "attention" ? "Attention" : status === "blocked" ? "Blocked" : "Ready"; }
 
 export default function OperationsScreen() {
   const { createTask, notify } = useAtlas();
+  const workspace = useAtlasWorkspace();
+  const completeControl = trpc.atlas.completeControl.useMutation({ onSuccess: () => void workspace.refetch() });
+  const liveData = workspace.data?.status === "ready" ? workspace.data : null;
+  const liveControls = liveData?.operationalControls ?? [];
+  const liveSignals = liveData?.maintenanceSignals ?? [];
+  const controls: DisplayControl[] = liveControls.length ? liveControls.map((control) => ({ ...control, live: true })) : [
+    ...inventoryItems.map((item) => ({ id: item.id, domain: "inventory" as const, title: item.name, context: item.location, detail: item.detail, status: item.state === "Inspection hold" || item.state === "Stockout risk" ? "attention" : "ready", severity: item.severity, requiredEvidence: item.state === "Inspection hold", live: false })),
+    ...qualityControls.map((control) => ({ id: control.id, domain: "quality" as const, title: control.title, context: control.context, detail: control.detail, status: control.status.toLowerCase(), severity: control.severity, requiredEvidence: true, live: false })),
+    ...safetyControls.map((control) => ({ id: control.id, domain: "safety" as const, title: control.title, context: control.context, detail: control.detail, status: control.status.toLowerCase(), severity: control.severity, requiredEvidence: true, live: false })),
+  ];
+  const group = (domain: DisplayControl["domain"]) => controls.filter((control) => control.domain === domain);
+  const complete = async (control: DisplayControl) => {
+    if (control.requiredEvidence) { router.push("/inspection"); notify("Attach required evidence in the guided inspection before verifying this control."); return; }
+    if (!control.live) { createTask(`Verify: ${control.title}`, `${control.domain} control`); return; }
+    try { await completeControl.mutateAsync({ controlId: control.id, evidenceEventIds: [] }); notify(`${control.title} is verified in the live operational workspace.`, "success"); } catch (error) { notify(error instanceof Error ? error.message : "Atlas could not verify this operational control.", "warning"); }
+  };
+  const ControlCard = ({ control, icon }: { control: DisplayControl; icon: Parameters<typeof Icon>[0]["name"] }) => <Surface key={control.id} style={styles.record}><View style={styles.recordTop}><View style={styles.recordIcon}><Icon name={icon} color={control.severity === "critical" || control.severity === "high" ? "#FF6B57" : control.severity === "attention" ? "#F5B84B" : "#21D4C2"} size={18} /></View><View style={styles.recordCopy}><Text style={styles.recordTitle}>{control.title}</Text><Text style={styles.recordMeta}>{control.context}</Text></View><SeverityPill severity={badgeSeverity(control.status, control.severity)} label={controlLabel(control.status)} /></View><Text style={styles.recordDetail}>{control.detail}</Text><PrimaryButton label={control.requiredEvidence ? "Capture verification" : control.status === "verified" ? "View verified control" : "Verify control"} icon={control.requiredEvidence ? "photo-camera" : "verified"} kind="secondary" onPress={() => void complete(control)} /></Surface>;
+
   return <ScreenContainer className="flex-1" edges={["top", "left", "right", "bottom"]} containerClassName="bg-background"><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-    <View style={styles.header}><IconAction name="arrow-back" label="Back to command" onPress={() => router.back()} /><View style={styles.headCenter}><Text style={styles.eyebrow}>Operational fabric</Text><Text style={styles.title}>Operations</Text></View><IconAction name="more-horiz" label="More operations options" onPress={() => notify("Operational fabric events remain role- and facility-scoped.")} /></View>
-    <Surface style={styles.pulseCard}><View style={styles.pulseTop}><View><Text style={styles.pulseLabel}>Production pulse</Text><Text style={styles.pulseTitle}>{productionPulse.line}</Text></View><SeverityPill severity="attention" label="Recovery active" /></View><View style={styles.pulseGrid}><View><Text style={styles.gridLabel}>PLAN</Text><Text style={styles.gridValue}>{productionPulse.plan}</Text></View><View><Text style={styles.gridLabel}>THROUGHPUT</Text><Text style={styles.gridValue}>{productionPulse.throughput}</Text></View></View><View style={styles.bottleneck}><Icon name="report-problem" color="#F5B84B" size={17} /><Text style={styles.bottleneckText}>{productionPulse.bottleneck}</Text></View><PrimaryButton label="Open recovery work" icon="assignment" onPress={() => router.push({ pathname: "/task/[id]", params: { id: "WO-182" } })} /></Surface>
+    <View style={styles.header}><IconAction name="arrow-back" label="Back to command" onPress={() => router.back()} /><View style={styles.headCenter}><Text style={styles.eyebrow}>Operational fabric</Text><Text style={styles.title}>Operations</Text></View><IconAction name="sync" label="Refresh live operational controls" onPress={() => void workspace.refetch()} /></View>
+    <Surface style={styles.pulseCard}><View style={styles.pulseTop}><View><Text style={styles.pulseLabel}>Production pulse</Text><Text style={styles.pulseTitle}>{liveData ? "Live operational controls" : productionPulse.line}</Text></View><SeverityPill severity={liveData ? "good" : "attention"} label={liveData ? `${liveControls.length} live controls` : "Recovery active"} /></View><View style={styles.pulseGrid}><View><Text style={styles.gridLabel}>PLAN</Text><Text style={styles.gridValue}>{liveData ? "Role-scoped control records are synchronized." : productionPulse.plan}</Text></View><View><Text style={styles.gridLabel}>THROUGHPUT</Text><Text style={styles.gridValue}>{liveData ? "Evidence and decisions are retained in the event fabric." : productionPulse.throughput}</Text></View></View><View style={styles.bottleneck}><Icon name="report-problem" color="#F5B84B" size={17} /><Text style={styles.bottleneckText}>{liveData ? "Use verified controls and evidence before releasing production work." : productionPulse.bottleneck}</Text></View><PrimaryButton label="Open recovery work" icon="assignment" onPress={() => router.push({ pathname: "/task/[id]", params: { id: "WO-182" } })} /></Surface>
+    <SectionTitle eyebrow="Predictive maintenance" title="Telemetry signals" />
+    {liveSignals.length ? <View style={styles.list}>{liveSignals.map((signal) => <Surface key={`${signal.assetId}-${signal.metric}`} style={styles.signal}><View style={styles.signalTop}><View style={styles.signalIcon}><Icon name="monitor-heart" color={signal.risk === "high" ? "#FF6B57" : signal.risk === "medium" ? "#F5B84B" : "#21D4C2"} size={19} /></View><View style={styles.signalCopy}><Text style={styles.recordTitle}>{signal.metric.replaceAll("_", " ")}</Text><Text style={styles.recordMeta}>Asset {signal.assetId} · confidence {signal.confidence}</Text></View><SeverityPill severity={signal.risk === "high" ? "high" : signal.risk === "medium" ? "attention" : "good"} label={`${signal.risk} risk`} /></View><Text style={styles.recordDetail}>{signal.explanation}</Text><View style={styles.recommendation}><Text style={styles.recLabel}>RECOMMENDED ACTION</Text><Text style={styles.recText}>{signal.recommendedAction}</Text></View><PrimaryButton label="Open guided inspection" icon="fact-check" kind="secondary" onPress={() => router.push("/inspection")} /></Surface>)}</View> : <Surface style={styles.emptySignal}><Icon name="sensors" color="#78B6FF" size={20} /><View style={styles.learnCopy}><Text style={styles.learnTitle}>Telemetry feed awaiting authorized records</Text><Text style={styles.learnText}>When live readings arrive, Atlas derives a transparent maintenance signal from configured observation bands and displays its confidence.</Text></View></Surface>}
     <SectionTitle eyebrow="Inventory" title="Materials & availability" />
-    <View style={styles.list}>{inventoryItems.map((item) => <Surface key={item.id} style={styles.record}><View style={styles.recordTop}><View style={styles.recordIcon}><Icon name="inventory" color={item.severity === "high" ? "#FF6B57" : item.severity === "attention" ? "#F5B84B" : "#21D4C2"} size={18} /></View><View style={styles.recordCopy}><Text style={styles.recordTitle}>{item.name}</Text><Text style={styles.recordMeta}>{item.location}</Text></View><SeverityPill severity={item.severity} label={item.state} /></View><Text style={styles.recordDetail}>{item.detail}</Text><PrimaryButton label={item.state === "Stockout risk" ? "Create replenishment task" : "Open inventory record"} icon={item.state === "Stockout risk" ? "add-task" : "visibility"} kind="secondary" onPress={() => item.state === "Stockout risk" ? createTask(`Protect availability: ${item.name}`, "Inventory replenishment") : notify(`${item.id} remains connected to its material, inspection, reservation, and consumption events.`)} /></Surface>)}</View>
+    <View style={styles.list}>{group("inventory").map((control) => <ControlCard key={control.id} control={control} icon="inventory" />)}</View>
     <SectionTitle eyebrow="Quality" title="Controls & evidence" />
-    <View style={styles.list}>{qualityControls.map((control) => <LinkedRecord key={control.id} icon="fact-check" title={control.title} detail={`${control.context} · ${control.detail}`} severity={control.severity} onPress={() => createTask(`Complete: ${control.title}`, "Quality inspection")} />)}</View>
+    <View style={styles.list}>{group("quality").map((control) => <ControlCard key={control.id} control={control} icon="fact-check" />)}</View>
     <SectionTitle eyebrow="Safety" title="Human safeguards" />
-    <View style={styles.list}>{safetyControls.map((control) => <LinkedRecord key={control.id} icon="health-and-safety" title={control.title} detail={`${control.context} · ${control.detail}`} severity={control.severity} onPress={() => notify(`${control.id} requires explicit evidence and human verification before closure.`)} />)}</View>
-    <Surface style={styles.learnCard}><Icon name="history-edu" color="#78B6FF" size={20} /><View style={styles.learnCopy}><Text style={styles.learnTitle}>Every action creates evidence</Text><Text style={styles.learnText}>Production, inventory, quality, and safety updates flow into the same auditable event fabric for operational learning.</Text></View></Surface>
+    <View style={styles.list}>{group("safety").map((control) => <ControlCard key={control.id} control={control} icon="health-and-safety" />)}</View>
+    <Surface style={styles.learnCard}><Icon name="history-edu" color="#78B6FF" size={20} /><View style={styles.learnCopy}><Text style={styles.learnTitle}>Every action creates evidence</Text><Text style={styles.learnText}>Production, inventory, quality, safety, evidence, and maintenance signals flow into the same role-scoped operational fabric.</Text></View></Surface>
     <View style={{ height: 80 }} />
   </ScrollView><FloatingAct /></ScreenContainer>;
 }
 
 const styles = StyleSheet.create({
-  content: { gap: 17, paddingBottom: 20, paddingHorizontal: 18, paddingTop: 8 },
-  header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  headCenter: { alignItems: "center" },
-  eyebrow: { color: "#8EA0A7", fontSize: 10, fontWeight: "800", letterSpacing: 1.05, textTransform: "uppercase" },
-  title: { color: "#E8F0F1", fontSize: 25, fontWeight: "800", letterSpacing: -0.7, marginTop: 2 },
-  pulseCard: { gap: 13, padding: 15 },
-  pulseTop: { alignItems: "flex-start", flexDirection: "row", justifyContent: "space-between" },
-  pulseLabel: { color: "#8EA0A7", fontSize: 10, fontWeight: "800", letterSpacing: 0.9, textTransform: "uppercase" },
-  pulseTitle: { color: "#E8F0F1", fontSize: 18, fontWeight: "800", marginTop: 3 },
-  pulseGrid: { backgroundColor: "#17242A", borderRadius: 12, flexDirection: "row", gap: 18, padding: 12 },
-  gridLabel: { color: "#789099", fontSize: 9, fontWeight: "900", letterSpacing: 0.7 },
-  gridValue: { color: "#D7E4E6", fontSize: 11, fontWeight: "700", lineHeight: 16, marginTop: 4, maxWidth: 142 },
-  bottleneck: { alignItems: "center", flexDirection: "row", gap: 8 },
-  bottleneckText: { color: "#E7D19B", flex: 1, fontSize: 12, fontWeight: "700", lineHeight: 17 },
-  list: { gap: 9 },
-  record: { gap: 10, padding: 14 },
-  recordTop: { alignItems: "center", flexDirection: "row", gap: 9 },
-  recordIcon: { alignItems: "center", backgroundColor: "#172F34", borderRadius: 11, height: 38, justifyContent: "center", width: 38 },
-  recordCopy: { flex: 1 },
-  recordTitle: { color: "#E8F0F1", fontSize: 14, fontWeight: "800" },
-  recordMeta: { color: "#869BA1", fontSize: 11, fontWeight: "600", marginTop: 3 },
-  recordDetail: { color: "#AABAC0", fontSize: 12, lineHeight: 18 },
-  learnCard: { alignItems: "flex-start", flexDirection: "row", gap: 11, padding: 14 },
-  learnCopy: { flex: 1, gap: 3 },
-  learnTitle: { color: "#E8F0F1", fontSize: 13, fontWeight: "800" },
-  learnText: { color: "#90A4AA", fontSize: 11, lineHeight: 16 },
+  content: { gap: 17, paddingBottom: 20, paddingHorizontal: 18, paddingTop: 8 }, header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" }, headCenter: { alignItems: "center" }, eyebrow: { color: "#8EA0A7", fontSize: 10, fontWeight: "800", letterSpacing: 1.05, textTransform: "uppercase" }, title: { color: "#E8F0F1", fontSize: 25, fontWeight: "800", letterSpacing: -0.7, marginTop: 2 }, pulseCard: { gap: 13, padding: 15 }, pulseTop: { alignItems: "flex-start", flexDirection: "row", justifyContent: "space-between" }, pulseLabel: { color: "#8EA0A7", fontSize: 10, fontWeight: "800", letterSpacing: 0.9, textTransform: "uppercase" }, pulseTitle: { color: "#E8F0F1", fontSize: 18, fontWeight: "800", marginTop: 3 }, pulseGrid: { backgroundColor: "#17242A", borderRadius: 12, flexDirection: "row", gap: 18, padding: 12 }, gridLabel: { color: "#789099", fontSize: 9, fontWeight: "900", letterSpacing: 0.7 }, gridValue: { color: "#D7E4E6", fontSize: 11, fontWeight: "700", lineHeight: 16, marginTop: 4, maxWidth: 142 }, bottleneck: { alignItems: "center", flexDirection: "row", gap: 8 }, bottleneckText: { color: "#E7D19B", flex: 1, fontSize: 12, fontWeight: "700", lineHeight: 17 }, list: { gap: 9 }, record: { gap: 10, padding: 14 }, recordTop: { alignItems: "center", flexDirection: "row", gap: 9 }, recordIcon: { alignItems: "center", backgroundColor: "#172F34", borderRadius: 11, height: 38, justifyContent: "center", width: 38 }, recordCopy: { flex: 1 }, recordTitle: { color: "#E8F0F1", fontSize: 14, fontWeight: "800" }, recordMeta: { color: "#869BA1", fontSize: 11, fontWeight: "600", marginTop: 3 }, recordDetail: { color: "#AABAC0", fontSize: 12, lineHeight: 18 }, signal: { gap: 10, padding: 14 }, signalTop: { alignItems: "center", flexDirection: "row", gap: 9 }, signalIcon: { alignItems: "center", backgroundColor: "#172F34", borderRadius: 11, height: 38, justifyContent: "center", width: 38 }, signalCopy: { flex: 1 }, recommendation: { backgroundColor: "#17242A", borderRadius: 11, gap: 4, padding: 11 }, recLabel: { color: "#799099", fontSize: 9, fontWeight: "900", letterSpacing: 0.7 }, recText: { color: "#D6E3E5", fontSize: 12, fontWeight: "700", lineHeight: 17 }, emptySignal: { alignItems: "flex-start", flexDirection: "row", gap: 11, padding: 14 }, learnCard: { alignItems: "flex-start", flexDirection: "row", gap: 11, padding: 14 }, learnCopy: { flex: 1, gap: 3 }, learnTitle: { color: "#E8F0F1", fontSize: 13, fontWeight: "800" }, learnText: { color: "#90A4AA", fontSize: 11, lineHeight: 16 },
 });

@@ -26,3 +26,8 @@
 - [x] Synchronize the Atlas project with the latest GitHub revision and verify the resulting state.
 - [x] Review the project README and implement the highest-value Atlas capabilities it prescribes.
 - [x] Validate and deliver the README-aligned Atlas app update.
+- [x] Define operational-control, evidence, and telemetry record models for the live Atlas workspace.
+- [x] Connect production, inventory, quality, and safety controls to Supabase-backed live records.
+- [x] Add secure evidence upload preparation with offline-safe queueing.
+- [x] Add role-scoped telemetry signals and predictive-maintenance actions.
+- [x] Validate and deliver the live operations, evidence, and predictive-maintenance update.
