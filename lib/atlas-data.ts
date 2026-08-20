@@ -32,6 +32,33 @@ export type AtlasAsset = {
   serial: string;
   manufactured: string;
   history: string[];
+  passport: {
+    origin: string;
+    materialBatch: string;
+    production: string;
+    inspection: string;
+    logistics: string;
+    economics: string;
+    impact: string;
+  };
+};
+
+export type AtlasInventoryItem = {
+  id: string;
+  name: string;
+  location: string;
+  state: "Available" | "Reserved" | "Inspection hold" | "Stockout risk";
+  detail: string;
+  severity: Severity;
+};
+
+export type AtlasControl = {
+  id: string;
+  title: string;
+  context: string;
+  detail: string;
+  status: "Ready" | "Attention" | "Blocked" | "Verified";
+  severity: Severity;
 };
 
 export type AtlasProject = {
@@ -131,6 +158,7 @@ export const assets: AtlasAsset[] = [
     serial: "CNC-14-23-0918",
     manufactured: "Installed 12 Sep 2023",
     history: ["Alarm recorded at 08:42", "Job 182 rerouted for recovery", "Last service completed 18 Jul 2026"],
+    passport: { origin: "North Plant commissioning record", materialBatch: "Cooling assembly batch CL-14-09", production: "CNC forming cell · Line 2", inspection: "Cooling-loop inspection due", logistics: "Fixed production location", economics: "Downtime is linked to Job 182 recovery and Order SO-812 exposure", impact: "Condition-driven service protects asset life and avoids unplanned scrap." },
   },
   {
     id: "LP-0831",
@@ -147,6 +175,7 @@ export const assets: AtlasAsset[] = [
     serial: "LP-0831-KE2047",
     manufactured: "Produced 18 Aug 2026",
     history: ["Final inspection passed", "Dispatch pack assembled", "Site acceptance inspection scheduled"],
+    passport: { origin: "Kestrel Metals · steel batch KE-2047", materialBatch: "KE-2047", production: "LifeHouse fabrication and final assembly", inspection: "Final inspection passed; delivery release pending", logistics: "North Plant → LifeHouse Site West", economics: "Commercial release is connected to SO-812 and delivery acceptance", impact: "Passport retains material lineage, repairability, and recovery context." },
   },
   {
     id: "VH-08",
@@ -163,6 +192,7 @@ export const assets: AtlasAsset[] = [
     serial: "V08-FLT-2024",
     manufactured: "Commissioned 05 Jan 2024",
     history: ["Pre-trip inspection complete", "Route pack prepared", "Fuel level verified"],
+    passport: { origin: "Atlas logistics fleet record", materialBatch: "Fleet asset V08", production: "Configured for LifeHouse dispatch", inspection: "Pre-trip inspection complete", logistics: "North Plant dispatch lane", economics: "Route activation follows delivery-release authorization", impact: "Route and fuel checks support lower avoidable travel and failed delivery risk." },
   },
 ];
 
@@ -230,6 +260,36 @@ export const orders: AtlasOrder[] = [
     status: "Ready to dispatch",
     note: "Vehicle 08 is available after 14:30 for the assigned route.",
   },
+];
+
+export const inventoryItems: AtlasInventoryItem[] = [
+  { id: "MAT-KE2047", name: "Steel batch KE-2047", location: "East Warehouse · Bay 04", state: "Inspection hold", detail: "Incoming QA verification is required before production release.", severity: "attention" },
+  { id: "CMP-BE14", name: "Bearing assembly kit", location: "North Plant · Maintenance cage", state: "Reserved", detail: "Held against Machine 14 contingency work.", severity: "normal" },
+  { id: "POD-0831", name: "LifePod LP-0831", location: "North Plant · Dispatch", state: "Available", detail: "Final delivery release remains pending.", severity: "normal" },
+  { id: "SKU-FRM92", name: "Frame connector set", location: "North Plant · Line 2", state: "Stockout risk", detail: "Alternate routing will consume the remaining controlled quantity.", severity: "high" },
+];
+
+export const productionPulse = {
+  line: "North Plant · Line 2",
+  plan: "Recovery plan active",
+  throughput: "Protected by controlled alternate routing",
+  bottleneck: "Machine 14 cooling return temperature",
+  quality: "First-off inspection required before backlog release",
+};
+
+export const qualityControls: AtlasControl[] = [
+  { id: "QA-044", title: "Incoming steel batch KE-2047", context: "East Warehouse · Bay 04", detail: "Measure, validate mill certificate, then accept or reject the batch.", status: "Attention", severity: "attention" },
+  { id: "QA-182", title: "First-off inspection · Job 182", context: "North Plant · Machine 8", detail: "Required before the alternate production route can release backlog.", status: "Ready", severity: "normal" },
+];
+
+export const safetyControls: AtlasControl[] = [
+  { id: "SAFE-14", title: "Cooling-loop maintenance controls", context: "Machine 14 · Line 2", detail: "PPE, isolation, and thermal verification are required before inspection.", status: "Attention", severity: "high" },
+  { id: "SAFE-V08", title: "Pre-trip dispatch check", context: "Vehicle 08 · Dispatch", detail: "Verified route pack, vehicle condition, and driver readiness are recorded.", status: "Verified", severity: "normal" },
+];
+
+export const supplierCommitments = [
+  { id: "SUP-KE", name: "Kestrel Metals", commitment: "Steel batch KE-2047", status: "Verification pending", detail: "Certificate and dimensional inspection govern release to production.", severity: "attention" as Severity },
+  { id: "SUP-NM", name: "Northline Motors", commitment: "Cooling service-kit replenishment", status: "Confirmed", detail: "Contingency kit is reserved for Machine 14 service work.", severity: "normal" as Severity },
 ];
 
 export const commandBrief = {

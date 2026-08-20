@@ -24,3 +24,5 @@
 - [ ] Prepare QR and offline-sync device test instructions and capture user validation.
 - [ ] Save and deliver the provisioned Atlas project checkpoint.
 - [x] Synchronize the Atlas project with the latest GitHub revision and verify the resulting state.
+- [x] Review the project README and implement the highest-value Atlas capabilities it prescribes.
+- [x] Validate and deliver the README-aligned Atlas app update.

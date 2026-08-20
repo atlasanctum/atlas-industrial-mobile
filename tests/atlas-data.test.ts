@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { assets, commandBrief, initialTasks, orders, projects } from "../lib/atlas-data";
+import { assets, commandBrief, initialTasks, inventoryItems, orders, projects, qualityControls, safetyControls, supplierCommitments } from "../lib/atlas-data";
 
 describe("Atlas operational workspace", () => {
   it("keeps active work linked to valid assets and projects", () => {
@@ -27,5 +27,21 @@ describe("Atlas operational workspace", () => {
       expect(asset.health).toBeGreaterThanOrEqual(0);
       expect(asset.health).toBeLessThanOrEqual(100);
     });
+  });
+
+  it("keeps each product passport connected across physical, economic, and impact context", () => {
+    assets.forEach((asset) => {
+      expect(asset.passport.origin).not.toHaveLength(0);
+      expect(asset.passport.production).not.toHaveLength(0);
+      expect(asset.passport.economics).not.toHaveLength(0);
+      expect(asset.passport.impact).not.toHaveLength(0);
+    });
+  });
+
+  it("exposes inventory, quality, safety, and supplier controls in the operational fabric", () => {
+    expect(inventoryItems.some((item) => item.state === "Stockout risk")).toBe(true);
+    expect(qualityControls.length).toBeGreaterThan(0);
+    expect(safetyControls.length).toBeGreaterThan(0);
+    expect(supplierCommitments.length).toBeGreaterThan(0);
   });
 });

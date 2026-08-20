@@ -24,6 +24,8 @@ export default function AssetDetailScreen() {
     <Surface style={styles.alertCard}><View style={styles.alertTitleRow}><Icon name="warning-amber" color="#F5B84B" size={20} /><Text style={styles.alertTitle}>Operational attention</Text></View><Text style={styles.alertText}>{asset.alert}</Text><View style={styles.nextAction}><Text style={styles.nextLabel}>RECOMMENDED NEXT ACTION</Text><Text style={styles.nextText}>{asset.nextAction}</Text></View><PrimaryButton label="Create inspection work" icon="fact-check" onPress={() => createTask(`Inspect ${asset.name}`, "Asset inspection")} /></Surface>
     <SectionTitle eyebrow="Digital identity" title="Traceability" />
     <Surface style={styles.identityCard}><View style={styles.identityRow}><Text style={styles.identityLabel}>Serial number</Text><Text style={styles.identityValue}>{asset.serial}</Text></View><View style={styles.identityRow}><Text style={styles.identityLabel}>Custodian</Text><Text style={styles.identityValue}>{asset.custodian}</Text></View><View style={styles.identityRow}><Text style={styles.identityLabel}>Lifecycle</Text><Text style={styles.identityValue}>{asset.manufactured}</Text></View><View style={styles.identityRow}><Text style={styles.identityLabel}>Utilization</Text><Text style={styles.identityValue}>{asset.utilization}</Text></View></Surface>
+    <SectionTitle eyebrow="Digital product passport" title="Lifecycle, economics & impact" />
+    <Surface style={styles.passportCard}><View style={styles.passportRow}><Icon name="inventory-2" color="#78B6FF" size={17} /><View style={styles.passportCopy}><Text style={styles.passportLabel}>ORIGIN & MATERIALS</Text><Text style={styles.passportValue}>{asset.passport.origin} · {asset.passport.materialBatch}</Text></View></View><View style={styles.passportRow}><Icon name="precision-manufacturing" color="#21D4C2" size={17} /><View style={styles.passportCopy}><Text style={styles.passportLabel}>OPERATIONS & INSPECTION</Text><Text style={styles.passportValue}>{asset.passport.production} · {asset.passport.inspection}</Text></View></View><View style={styles.passportRow}><Icon name="local-shipping" color="#F5B84B" size={17} /><View style={styles.passportCopy}><Text style={styles.passportLabel}>LOGISTICS & ECONOMICS</Text><Text style={styles.passportValue}>{asset.passport.logistics} · {asset.passport.economics}</Text></View></View><View style={styles.passportRow}><Icon name="eco" color="#8DE6AE" size={17} /><View style={styles.passportCopy}><Text style={styles.passportLabel}>IMPACT & RECOVERY</Text><Text style={styles.passportValue}>{asset.passport.impact}</Text></View></View></Surface>
     <SectionTitle eyebrow="Event fabric" title="Recent history" />
     <View style={styles.history}>{asset.history.map((entry, index) => <View key={entry} style={styles.event}><View style={styles.eventRail}><View style={[styles.eventDot, { backgroundColor: index === 0 ? "#21D4C2" : "#4E9BFF" }]} />{index < asset.history.length - 1 ? <View style={styles.eventLine} /> : null}</View><View style={styles.eventBody}><Text style={styles.eventText}>{entry}</Text><Text style={styles.eventMeta}>{index === 0 ? "Current operational event" : "Verified record"}</Text></View></View>)}</View>
     <SectionTitle eyebrow="Connected graph" title="Related records" />
@@ -55,6 +57,11 @@ const styles = StyleSheet.create({
   identityRow: { borderBottomColor: "#28383E", borderBottomWidth: 1, gap: 6, paddingVertical: 12 },
   identityLabel: { color: "#7E9399", fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
   identityValue: { color: "#D0DEE0", fontSize: 13, fontWeight: "700" },
+  passportCard: { gap: 13, padding: 14 },
+  passportRow: { alignItems: "flex-start", flexDirection: "row", gap: 10 },
+  passportCopy: { flex: 1, gap: 3 },
+  passportLabel: { color: "#7C9299", fontSize: 9, fontWeight: "900", letterSpacing: 0.7 },
+  passportValue: { color: "#C5D5D8", fontSize: 12, fontWeight: "700", lineHeight: 17 },
   history: { gap: 0 },
   event: { flexDirection: "row", minHeight: 60 },
   eventRail: { alignItems: "center", width: 25 },

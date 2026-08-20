@@ -30,6 +30,15 @@ export function mapLiveAsset(record: LiveAtlasRecord): AtlasAsset {
     serial: stringValue(record.serial_number, "No serial number recorded"),
     manufactured: stringValue(data.manufactured, "Lifecycle date unavailable"),
     history: history.length ? history : ["Live passport record retrieved from the authorized workspace."],
+    passport: {
+      origin: stringValue(data.origin, "Origin details have not been recorded."),
+      materialBatch: stringValue(data.material_batch, "Material lineage has not been recorded."),
+      production: stringValue(data.production, "Production context has not been recorded."),
+      inspection: stringValue(data.inspection, "Inspection status has not been recorded."),
+      logistics: stringValue(data.logistics, "Logistics context has not been recorded."),
+      economics: stringValue(data.economics, "Economic context is access-controlled or unavailable."),
+      impact: stringValue(data.impact, "Impact context has not been recorded."),
+    },
   };
 }
 

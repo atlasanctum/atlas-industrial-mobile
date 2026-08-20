@@ -19,6 +19,9 @@ export default function RootLayout() {
               <Stack.Screen name="asset/[id]" options={{ presentation: "card" }} />
               <Stack.Screen name="task/[id]" options={{ presentation: "card" }} />
               <Stack.Screen name="project/[id]" options={{ presentation: "card" }} />
+              <Stack.Screen name="operations" options={{ presentation: "card" }} />
+              <Stack.Screen name="inspection" options={{ presentation: "card" }} />
+              <Stack.Screen name="voice-note" options={{ presentation: "card" }} />
               <Stack.Screen name="commerce" options={{ presentation: "card" }} />
               <Stack.Screen name="scan" options={{ presentation: "fullScreenModal", animation: "fade" }} />
             </Stack>

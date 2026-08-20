@@ -7,7 +7,7 @@ import { Icon, PrimaryButton, SeverityPill, Surface } from "@/components/atlas-u
 import { useAtlas } from "@/lib/atlas-store";
 import { haptic } from "@/lib/haptics";
 
-type ActionKey = "scan" | "task" | "issue" | "inspection" | "receive" | "transfer" | "evidence" | "ask";
+type ActionKey = "scan" | "task" | "issue" | "inspection" | "receive" | "transfer" | "evidence" | "voice" | "ask";
 
 const actionItems: { key: ActionKey; label: string; icon: keyof typeof MaterialIcons.glyphMap; note: string }[] = [
   { key: "scan", label: "Scan an asset", icon: "qr-code-scanner", note: "Identify an asset, material, shipment or work order." },
@@ -17,6 +17,7 @@ const actionItems: { key: ActionKey; label: string; icon: keyof typeof MaterialI
   { key: "receive", label: "Receive material", icon: "inventory", note: "Confirm a material arrival and start quality checks." },
   { key: "transfer", label: "Transfer inventory", icon: "swap-horiz", note: "Move a traceable item between controlled locations." },
   { key: "evidence", label: "Capture evidence", icon: "photo-camera", note: "Attach a photo, note, or measurement to an event." },
+  { key: "voice", label: "Voice field report", icon: "mic", note: "Record a field observation and create a reviewable operational event." },
   { key: "ask", label: "Ask Atlas", icon: "auto-awesome", note: "Use the operational copilot to decide what should happen next." },
 ];
 
@@ -50,6 +51,18 @@ export function FloatingAct() {
       notify("Atlas is ready with your current operational context.");
       return;
     }
+    if (selected === "inspection" || selected === "evidence") {
+      close();
+      router.push("/inspection");
+      notify("Guided verification opened with evidence and offline sync controls.");
+      return;
+    }
+    if (selected === "voice") {
+      close();
+      router.push("/voice-note");
+      notify("Voice-first field reporting opened with local capture and event queueing.");
+      return;
+    }
     const label = active?.label ?? "Field action";
     createTask(`${label} — current context`, selected === "issue" ? "Issue event" : "Field action");
     close();
@@ -63,6 +76,7 @@ export function FloatingAct() {
     receive: { title: "Receive with traceability", body: "Start a material receiving event, then complete the required incoming verification before release.", cta: "Start receiving" },
     transfer: { title: "Create controlled transfer", body: "The transfer will stay pending until location and custodian are verified.", cta: "Create transfer" },
     evidence: { title: "Capture verification", body: "A traceable evidence task will be created for the current object and location.", cta: "Add evidence task" },
+    voice: { title: "Record a field observation", body: "Capture what you observe, then confirm a concise summary before Atlas creates a reviewable operational event.", cta: "Open voice report" },
     ask: { title: "Ask Atlas", body: "Open the industrial copilot with the current facility, alerts, and active work already in context.", cta: "Open intelligence" },
   };
 
