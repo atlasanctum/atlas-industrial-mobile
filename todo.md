@@ -17,3 +17,10 @@
 - [x] Add authorization-controlled recommendation approval workflows.
 - [x] Validate live-data, role, offline, scan, intelligence, and approval paths.
 - [x] Capture and deliver the enhanced Atlas project checkpoint.
+- [ ] Verify Supabase Management API provisioning access and deployment configuration.
+- [ ] Finalize the manual Supabase schema, initial role-scope SQL, and deployment handoff package.
+- [ ] Apply the Atlas schema to the configured Supabase project and validate live tables.
+- [ ] Assign the initial Atlas member role and facility scope.
+- [ ] Prepare QR and offline-sync device test instructions and capture user validation.
+- [ ] Save and deliver the provisioned Atlas project checkpoint.
+- [x] Synchronize the Atlas project with the latest GitHub revision and verify the resulting state.
