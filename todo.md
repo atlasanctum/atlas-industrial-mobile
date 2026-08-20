@@ -36,3 +36,9 @@
 - [x] Save and deliver the Atlas production-handoff update.
 - [x] Add automated pre-deployment checks for telemetry contract integrity and evidence-upload constraints.
 - [x] Consolidate the production readiness handoff while retaining user-executed schema and physical-device test steps.
+- [ ] Confirm Supabase Management API access and deployed test asset identifiers.
+- [ ] Apply the production schema and insert a controlled Atlas telemetry record.
+- [ ] Capture Expo Go offline photo and audio evidence synchronization results.
+- [ ] Validate and deliver the production execution outcome.
+- [x] Strengthen Atlas operational safety and runtime readiness safeguards while Supabase migration access is pending.
+- [x] Validate and deliver the continued Atlas development update.

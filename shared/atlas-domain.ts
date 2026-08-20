@@ -95,6 +95,13 @@ export type AtlasEvidenceDraft = {
   attempts: number;
 };
 
+export const atlasEvidenceContentTypes = ["image/jpeg", "image/png", "image/heic", "audio/m4a", "audio/mp4", "audio/webm"] as const;
+export type AtlasEvidenceContentType = (typeof atlasEvidenceContentTypes)[number];
+
+export function isAllowedEvidenceContentType(contentType: string): contentType is AtlasEvidenceContentType {
+  return atlasEvidenceContentTypes.includes(contentType as AtlasEvidenceContentType);
+}
+
 export type AtlasTelemetryReading = {
  id: string;
  assetId: string;

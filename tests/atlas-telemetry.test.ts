@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveMaintenanceSignal, hasAtlasPermission, isValidTelemetryReading, type AtlasTelemetryReading } from "../shared/atlas-domain";
+import { deriveMaintenanceSignal, hasAtlasPermission, isAllowedEvidenceContentType, isValidTelemetryReading, type AtlasTelemetryReading } from "../shared/atlas-domain";
 
 const reading = (value: number, observedAt = "2026-08-20T08:42:00.000Z"): AtlasTelemetryReading => ({ id: `telemetry-${value}`, assetId: "MX-14", metric: "temperature_c", value, observedAt });
 
@@ -28,5 +28,11 @@ describe("Atlas predictive maintenance signals", () => {
     expect(isValidTelemetryReading({ assetId: "MX-14", metric: "temperature_c", value: 74, observedAt: "2026-08-20T08:42:00.000Z" })).toBe(true);
     expect(isValidTelemetryReading({ assetId: "MX-14", metric: "temperature_c", value: -1, observedAt: "2026-08-20T08:42:00.000Z" })).toBe(false);
     expect(isValidTelemetryReading({ assetId: "MX-14", metric: "temperature_c", value: 74, observedAt: "not-a-date" })).toBe(false);
+  });
+
+  it("accepts only reviewed media types for secure evidence storage", () => {
+    expect(isAllowedEvidenceContentType("image/jpeg")).toBe(true);
+    expect(isAllowedEvidenceContentType("audio/m4a")).toBe(true);
+    expect(isAllowedEvidenceContentType("application/pdf")).toBe(false);
   });
 });

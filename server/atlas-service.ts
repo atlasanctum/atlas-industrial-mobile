@@ -8,6 +8,7 @@ import {
   atlasRoles,
   deriveMaintenanceSignal,
   hasAtlasPermission,
+  isAllowedEvidenceContentType,
   isValidTelemetryReading,
   normalizeGroundedRecommendation,
   permissionsForRole,
@@ -135,6 +136,12 @@ export async function completeOperationalControl(manusUserId: number, controlId:
   if (!control) throw new Error("Operational control not found.");
   if (typeof control.facility_id === "string" && member.facilityIds.length > 0 && !member.facilityIds.includes(control.facility_id)) throw new Error("This operational control is outside your facility scope.");
   if (control.required_evidence === true && evidenceEventIds.length === 0) throw new Error("Evidence is required before this operational control can be verified.");
+  if (control.required_evidence === true) {
+    const uniqueEvidenceIds = [...new Set(evidenceEventIds)];
+    const verifiedEvidence = await Promise.all(uniqueEvidenceIds.map((eventId) => supabaseRequest<AtlasRecord[]>({ path: `atlas_evidence?event_client_id=eq.${encodeURIComponent(eventId)}&select=id,facility_id&limit=1`, method: "GET" })));
+    if (verifiedEvidence.some((records) => records.length === 0)) throw new Error("Required evidence has not finished secure upload.");
+    if (member.facilityIds.length > 0 && verifiedEvidence.flat().some((record) => typeof record.facility_id === "string" && !member.facilityIds.includes(record.facility_id))) throw new Error("Evidence is outside your facility scope.");
+  }
   const priorData = control.data && typeof control.data === "object" ? control.data : {};
   await supabaseRequest({ path: `atlas_operational_controls?id=eq.${encodeURIComponent(controlId)}`, method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "verified", updated_at: new Date().toISOString(), data: { ...priorData, verified_by_member_id: member.id, verified_at: new Date().toISOString(), evidence_event_ids: evidenceEventIds } }) });
   return { controlId, status: "verified" as const };
@@ -145,11 +152,11 @@ export async function uploadAtlasEvidence(manusUserId: number, draft: Pick<Atlas
   const content = Buffer.from(draft.base64, "base64");
   if (!content.length || content.length > 16 * 1024 * 1024) throw new Error("Evidence must be between 1 byte and 16 MB.");
   if (content.length !== draft.sizeBytes) throw new Error("Evidence size verification failed.");
-  if (!new Set(["image/jpeg", "image/png", "image/heic", "audio/m4a", "audio/mp4", "audio/webm"]).has(draft.contentType)) throw new Error("Evidence type is not supported.");
+  if (!isAllowedEvidenceContentType(draft.contentType)) throw new Error("Evidence type is not supported.");
   if (draft.facilityId && member.facilityIds.length > 0 && !member.facilityIds.includes(draft.facilityId)) throw new Error("Evidence cannot be uploaded outside your facility scope.");
   const sanitizedFilename = draft.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
   const stored = await storagePut(`atlas-evidence/${member.id}/${draft.eventClientId}/${sanitizedFilename}`, content, draft.contentType);
-  await supabaseRequest({ path: "atlas_evidence", method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ event_client_id: draft.eventClientId, actor_member_id: member.id, facility_id: draft.facilityId ?? null, entity_type: draft.entityType, entity_id: draft.entityId, storage_key: stored.key, storage_url: stored.url, content_type: draft.contentType, filename: sanitizedFilename, size_bytes: content.length }) });
+  await supabaseRequest({ path: "atlas_evidence?on_conflict=storage_key", method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ event_client_id: draft.eventClientId, actor_member_id: member.id, facility_id: draft.facilityId ?? null, entity_type: draft.entityType, entity_id: draft.entityId, storage_key: stored.key, storage_url: stored.url, content_type: draft.contentType, filename: sanitizedFilename, size_bytes: content.length }) });
   return { id: draft.id, url: stored.url, key: stored.key };
 }
 
@@ -159,6 +166,9 @@ export async function syncAtlasEvents(manusUserId: number, inputs: AtlasEventInp
   const accepted: string[] = [];
   for (const input of inputs) {
     if (input.eventType === "asset_scanned") requireAtlasPermission(member, "scan:record");
+    if (input.facilityId && member.facilityIds.length > 0 && !member.facilityIds.includes(input.facilityId)) throw new Error("An event cannot be recorded outside your facility scope.");
+    if (Date.parse(input.occurredAt) > Date.now() + 5 * 60 * 1000) throw new Error("An event timestamp cannot be more than five minutes in the future.");
+    if (JSON.stringify(input.payload).length > 64 * 1024) throw new Error("An event payload exceeds the 64 KB safety limit.");
     await supabaseRequest<AtlasRecord[]>({
       path: "atlas_events?on_conflict=client_event_id",
       method: "POST",
