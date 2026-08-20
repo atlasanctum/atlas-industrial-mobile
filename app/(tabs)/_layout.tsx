@@ -1,40 +1,33 @@
 import { Tabs } from "expo-router";
+import { Platform, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Platform } from "react-native";
-import { useColors } from "@/hooks/use-colors";
+import { Icon } from "@/components/atlas-ui";
 
 export default function TabLayout() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
-  const bottomPadding = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
-  const tabBarHeight = 56 + bottomPadding;
-
+  const bottomPadding = Platform.OS === "web" ? 10 : Math.max(insets.bottom, 8);
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarStyle: {
-          paddingTop: 8,
-          paddingBottom: bottomPadding,
-          height: tabBarHeight,
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          borderTopWidth: 0.5,
-        },
+        tabBarActiveTintColor: "#21D4C2",
+        tabBarInactiveTintColor: "#778A91",
+        tabBarHideOnKeyboard: true,
+        tabBarLabelStyle: styles.label,
+        tabBarStyle: [styles.tabBar, { height: 59 + bottomPadding, paddingBottom: bottomPadding }],
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: "Command", tabBarIcon: ({ color }) => <Icon name="space-dashboard" color={color} size={22} /> }} />
+      <Tabs.Screen name="work" options={{ title: "Work", tabBarIcon: ({ color }) => <Icon name="assignment" color={color} size={22} /> }} />
+      <Tabs.Screen name="assets" options={{ title: "Assets", tabBarIcon: ({ color }) => <Icon name="precision-manufacturing" color={color} size={22} /> }} />
+      <Tabs.Screen name="projects" options={{ title: "Projects", tabBarIcon: ({ color }) => <Icon name="account-tree" color={color} size={22} /> }} />
+      <Tabs.Screen name="intelligence" options={{ title: "Intelligence", tabBarIcon: ({ color }) => <Icon name="auto-awesome" color={color} size={21} /> }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: { backgroundColor: "#0E181D", borderTopColor: "#293940", borderTopWidth: 1, paddingTop: 8 },
+  label: { fontSize: 10, fontWeight: "700", marginTop: 2 },
+});
