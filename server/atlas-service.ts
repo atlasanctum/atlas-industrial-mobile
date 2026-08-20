@@ -4,9 +4,11 @@ import { invokeLLM, listLLMModels } from "./_core/llm";
 import { storagePut } from "./storage";
 import { isSupabaseConfigured, supabaseRequest } from "./supabase";
 import {
+  atlasTelemetryMetrics,
   atlasRoles,
   deriveMaintenanceSignal,
   hasAtlasPermission,
+  isValidTelemetryReading,
   normalizeGroundedRecommendation,
   permissionsForRole,
   type AtlasEventInput,
@@ -86,8 +88,9 @@ function toOperationalControl(record: AtlasRecord): AtlasOperationalControl | nu
 
 function toTelemetryReading(record: AtlasRecord): AtlasTelemetryReading | null {
   const metric = record.metric;
-  if (typeof record.id !== "string" || typeof record.asset_id !== "string" || (metric !== "temperature_c" && metric !== "vibration_mm_s" && metric !== "runtime_hours" && metric !== "pressure_bar") || typeof record.value !== "number" || typeof record.observed_at !== "string") return null;
-  return { id: record.id, assetId: record.asset_id, facilityId: typeof record.facility_id === "string" ? record.facility_id : undefined, metric, value: record.value, observedAt: record.observed_at };
+  if (typeof record.id !== "string" || typeof record.asset_id !== "string" || typeof metric !== "string" || !atlasTelemetryMetrics.includes(metric as AtlasTelemetryReading["metric"]) || typeof record.value !== "number" || typeof record.observed_at !== "string") return null;
+  const reading = { id: record.id, assetId: record.asset_id, facilityId: typeof record.facility_id === "string" ? record.facility_id : undefined, metric, value: record.value, observedAt: record.observed_at };
+  return isValidTelemetryReading(reading as AtlasTelemetryReading) ? reading as AtlasTelemetryReading : null;
 }
 
 export async function getAtlasWorkspace(manusUserId: number) {
@@ -141,6 +144,8 @@ export async function uploadAtlasEvidence(manusUserId: number, draft: Pick<Atlas
   const member = requireAtlasPermission(await getAtlasMember(manusUserId), "evidence:upload");
   const content = Buffer.from(draft.base64, "base64");
   if (!content.length || content.length > 16 * 1024 * 1024) throw new Error("Evidence must be between 1 byte and 16 MB.");
+  if (content.length !== draft.sizeBytes) throw new Error("Evidence size verification failed.");
+  if (!new Set(["image/jpeg", "image/png", "image/heic", "audio/m4a", "audio/mp4", "audio/webm"]).has(draft.contentType)) throw new Error("Evidence type is not supported.");
   if (draft.facilityId && member.facilityIds.length > 0 && !member.facilityIds.includes(draft.facilityId)) throw new Error("Evidence cannot be uploaded outside your facility scope.");
   const sanitizedFilename = draft.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
   const stored = await storagePut(`atlas-evidence/${member.id}/${draft.eventClientId}/${sanitizedFilename}`, content, draft.contentType);

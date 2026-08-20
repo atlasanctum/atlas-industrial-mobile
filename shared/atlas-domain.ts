@@ -96,13 +96,20 @@ export type AtlasEvidenceDraft = {
 };
 
 export type AtlasTelemetryReading = {
-  id: string;
-  assetId: string;
-  facilityId?: string;
-  metric: "temperature_c" | "vibration_mm_s" | "runtime_hours" | "pressure_bar";
-  value: number;
-  observedAt: string;
+ id: string;
+ assetId: string;
+ facilityId?: string;
+  metric: AtlasTelemetryMetric;
+ value: number;
+ observedAt: string;
 };
+
+export const atlasTelemetryMetrics = ["temperature_c", "vibration_mm_s", "runtime_hours", "pressure_bar"] as const;
+export type AtlasTelemetryMetric = (typeof atlasTelemetryMetrics)[number];
+
+export function isValidTelemetryReading(reading: Pick<AtlasTelemetryReading, "assetId" | "metric" | "value" | "observedAt">) {
+  return reading.assetId.trim().length > 0 && atlasTelemetryMetrics.includes(reading.metric) && Number.isFinite(reading.value) && reading.value >= 0 && Number.isFinite(Date.parse(reading.observedAt));
+}
 
 export type AtlasMaintenanceSignal = {
   assetId: string;

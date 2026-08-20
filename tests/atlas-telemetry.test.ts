@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveMaintenanceSignal, hasAtlasPermission, type AtlasTelemetryReading } from "../shared/atlas-domain";
+import { deriveMaintenanceSignal, hasAtlasPermission, isValidTelemetryReading, type AtlasTelemetryReading } from "../shared/atlas-domain";
 
 const reading = (value: number, observedAt = "2026-08-20T08:42:00.000Z"): AtlasTelemetryReading => ({ id: `telemetry-${value}`, assetId: "MX-14", metric: "temperature_c", value, observedAt });
 
@@ -22,5 +22,11 @@ describe("Atlas predictive maintenance signals", () => {
     expect(hasAtlasPermission("inspector", "evidence:upload")).toBe(true);
     expect(hasAtlasPermission("inspector", "control:complete")).toBe(true);
     expect(hasAtlasPermission("auditor", "evidence:upload")).toBe(false);
+  });
+
+  it("rejects malformed gateway readings before they can affect maintenance signals", () => {
+    expect(isValidTelemetryReading({ assetId: "MX-14", metric: "temperature_c", value: 74, observedAt: "2026-08-20T08:42:00.000Z" })).toBe(true);
+    expect(isValidTelemetryReading({ assetId: "MX-14", metric: "temperature_c", value: -1, observedAt: "2026-08-20T08:42:00.000Z" })).toBe(false);
+    expect(isValidTelemetryReading({ assetId: "MX-14", metric: "temperature_c", value: 74, observedAt: "not-a-date" })).toBe(false);
   });
 });
