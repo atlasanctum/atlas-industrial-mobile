@@ -16,4 +16,4 @@
 - [x] Ground intelligence recommendations in operational records with evidence references.
 - [x] Add authorization-controlled recommendation approval workflows.
 - [x] Validate live-data, role, offline, scan, intelligence, and approval paths.
-- [ ] Capture and deliver the enhanced Atlas project checkpoint.
+- [x] Capture and deliver the enhanced Atlas project checkpoint.
