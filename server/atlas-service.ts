@@ -215,6 +215,18 @@ export async function createAtlasScenario(manusUserId: number, input: { scopeTyp
   return { scenarioId, status: "awaiting_approval" as const, requiredRole: "manager" as const };
 }
 
+export async function decideAtlasScenario(manusUserId: number, scenarioId: string, decision: "approved" | "rejected", note?: string) {
+  const member = requireAtlasPermission(await getAtlasMember(manusUserId), "recommendation:approve");
+  const rows = await supabaseRequest<AtlasRecord[]>({ path: `atlas_scenarios?id=eq.${encodeURIComponent(scenarioId)}&select=*&limit=1`, method: "GET" });
+  const scenario = rows[0];
+  if (!scenario) throw new Error("Scenario not found.");
+  if (typeof scenario.facility_id === "string" && member.facilityIds.length > 0 && !member.facilityIds.includes(scenario.facility_id)) throw new Error("This scenario is outside your facility scope.");
+  if (scenario.required_role === "executive" && member.role !== "executive") throw new Error("Executive authorization is required for this scenario.");
+  await supabaseRequest({ path: `atlas_scenarios?id=eq.${encodeURIComponent(scenarioId)}`, method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: decision, updated_at: new Date().toISOString() }) });
+  await supabaseRequest({ path: "atlas_audit_log", method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ facility_id: scenario.facility_id ?? null, actor_member_id: member.id, action_type: `scenario_${decision}`, target_type: "scenario", target_id: scenarioId, metadata: { note: note ?? null } }) });
+  return { scenarioId, decision };
+}
+
 function recordsForGrounding(workspace: Awaited<ReturnType<typeof getAtlasWorkspace>>) {
   return {
     assets: workspace.assets.slice(0, 20).map((record) => ({ id: record.id, name: record.name, status: record.status, facility_id: record.facility_id, updated_at: record.updated_at })),

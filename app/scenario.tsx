@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Icon, PrimaryButton, SectionTitle, SeverityPill, Surface } from "@/components/atlas-ui";
@@ -12,13 +13,17 @@ const severityFor = (state: string) => state === "critical" ? "critical" : state
 
 export default function ScenarioScreen() {
   const [activeId, setActiveId] = useState(scenarioLibrary[0].id);
+  const [liveScenarioId, setLiveScenarioId] = useState<string | null>(null);
   const active = scenarioLibrary.find((scenario) => scenario.id === activeId) ?? scenarioLibrary[0];
   const { notify } = useAtlas();
   const workspace = useAtlasWorkspace();
   const createScenario = trpc.atlas.createScenario.useMutation();
+  const decideScenario = trpc.atlas.decideScenario.useMutation();
+  const workspacePermissions = workspace.data?.permissions as string[] | undefined;
+  const mayApprove = workspacePermissions?.includes("recommendation:approve") ?? false;
   const requestApproval = async () => {
     if (workspace.auth.isAuthenticated && workspace.data?.status === "ready") {
-      try { await createScenario.mutateAsync({ scopeType: active.scope, scopeId: active.scope === "asset" ? "MX-14" : undefined, premise: active.premise, assumptions: { evidenceState: active.evidenceState, source: "mobile_scenario_library" } }); notify("Scenario request is live and awaiting manager authorization.", "success"); return; } catch { notify("Atlas could not record the live scenario request. Check deployment readiness.", "warning"); return; }
+      try { const response = await createScenario.mutateAsync({ scopeType: active.scope, scopeId: active.scope === "asset" ? "MX-14" : undefined, premise: active.premise, assumptions: { evidenceState: active.evidenceState, source: "mobile_scenario_library" } }); setLiveScenarioId(response.scenarioId); notify("Scenario request is live and awaiting manager authorization.", "success"); return; } catch { notify("Atlas could not record the live scenario request. Check deployment readiness.", "warning"); return; }
     }
     notify("This scenario is a locally visible estimate. Sign in to record it in the governed live workspace.", "warning");
   };
@@ -26,7 +31,8 @@ export default function ScenarioScreen() {
     <View style={styles.header}><View style={styles.icon}><Icon name="account-tree" color="#21D4C2" size={21} /></View><View><Text style={styles.eyebrow}>Industrial scenario engine</Text><Text style={styles.title}>Compare futures</Text></View></View>
     <Text style={styles.intro}>Scenarios make assumptions visible. Atlas treats outputs as estimates until live records, authorization, execution, and verification close the learning loop.</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choices}>{scenarioLibrary.map((scenario) => <Pressable key={scenario.id} onPress={() => setActiveId(scenario.id)} style={[styles.choice, activeId === scenario.id && styles.choiceActive]}><Text style={[styles.choiceText, activeId === scenario.id && styles.choiceTextActive]}>{scenario.title}</Text></Pressable>)}</ScrollView>
-    <Surface style={styles.main}><View style={styles.mainTop}><View style={{ flex: 1 }}><Text style={styles.label}>SCENARIO</Text><Text style={styles.mainTitle}>{active.title}</Text></View><SeverityPill severity={severityFor(active.riskState)} label={active.riskState.replace("_", " ")} /></View><Text style={styles.premise}>{active.premise}</Text><View style={styles.impacts}><Impact label="Production" value={active.expectedProduction} /><Impact label="Delivery" value={active.deliveryImpact} /><Impact label="Margin" value={active.marginImpact} /></View><View style={styles.recommend}><Icon name="tips-and-updates" color="#21D4C2" size={18} /><Text style={styles.recommendText}>{active.recommendation}</Text></View><Text style={styles.estimate}>Evidence state: {active.evidenceState} · {active.requiredRole} authorization required before any execution.</Text><PrimaryButton label={createScenario.isPending ? "Recording scenario" : "Send for approval"} icon="verified" onPress={() => void requestApproval()} /></Surface>
+    <Surface style={styles.main}><View style={styles.mainTop}><View style={{ flex: 1 }}><Text style={styles.label}>SCENARIO</Text><Text style={styles.mainTitle}>{active.title}</Text></View><SeverityPill severity={severityFor(active.riskState)} label={active.riskState.replace("_", " ")} /></View><Text style={styles.premise}>{active.premise}</Text><View style={styles.impacts}><Impact label="Production" value={active.expectedProduction} /><Impact label="Delivery" value={active.deliveryImpact} /><Impact label="Margin" value={active.marginImpact} /></View><View style={styles.recommend}><Icon name="tips-and-updates" color="#21D4C2" size={18} /><Text style={styles.recommendText}>{active.recommendation}</Text></View><Text style={styles.estimate}>Evidence state: {active.evidenceState} · {active.requiredRole} authorization required before any execution.</Text>{liveScenarioId && mayApprove ? <PrimaryButton label={decideScenario.isPending ? "Authorizing scenario" : "Approve recorded scenario"} icon="verified-user" onPress={() => void decideScenario.mutateAsync({ scenarioId: liveScenarioId, decision: "approved" }).then(() => notify("Scenario approval was recorded in the live audit trail.", "success")).catch(() => notify("Atlas could not authorize this scenario for your current role or scope.", "warning"))} /> : <PrimaryButton label={createScenario.isPending ? "Recording scenario" : liveScenarioId ? "Awaiting manager approval" : "Send for approval"} icon={liveScenarioId ? "hourglass-top" : "verified"} onPress={() => void requestApproval()} />}</Surface>
+    <PrimaryButton label="Open controlled pilot runbook" icon="rocket-launch" kind="secondary" onPress={() => router.push("/pilot")} />
     <SectionTitle eyebrow="Model discipline" title="What Atlas will not assume" /><Surface style={styles.guardrail}><Text style={styles.guardrailTitle}>No automatic execution</Text><Text style={styles.guardrailBody}>A scenario can inform a recovery plan, but operational changes require the configured authority path and later verification against actual outcomes.</Text></Surface><View style={{ height: 28 }} />
   </ScrollView></ScreenContainer>;
 }

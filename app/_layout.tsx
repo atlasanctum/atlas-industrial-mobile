@@ -28,6 +28,7 @@ export default function RootLayout() {
               <Stack.Screen name="scenario" options={{ presentation: "card" }} />
               <Stack.Screen name="agents" options={{ presentation: "card" }} />
               <Stack.Screen name="governance" options={{ presentation: "card" }} />
+              <Stack.Screen name="pilot" options={{ presentation: "card" }} />
               <Stack.Screen name="inspection" options={{ presentation: "card" }} />
               <Stack.Screen name="voice-note" options={{ presentation: "card" }} />
               <Stack.Screen name="commerce" options={{ presentation: "card" }} />

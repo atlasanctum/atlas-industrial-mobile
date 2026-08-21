@@ -53,3 +53,10 @@
 - [x] Extend Atlas shared models, live schema, and governed server procedures for the advanced operating layer.
 - [x] Build the advanced control tower, digital twin, industrial memory, scenarios, and agent coordination experiences.
 - [x] Validate safeguards and deliver the advanced Atlas operating layer.
+- [x] Prepare the extended Supabase migration, digital-twin seed data, and manager-approved recovery pilot configuration.
+- [ ] Apply the migration and controlled live twin/telemetry records when production access is authorized.
+- [ ] Run and capture the manager-approved recovery pilot outcome for one production line.
+- [ ] Validate and deliver the Atlas production rollout handoff.
+- [x] Finalize the in-project governed recovery-pilot workflow and production-readiness safeguards.
+- [x] Consolidate the migration, twin, scenario, evidence, and device-test handoff into a final rollout package.
+- [x] Validate and deliver the completed in-project Atlas operating-layer rollout.

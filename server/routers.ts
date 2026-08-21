@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { askAtlasIntelligence, completeOperationalControl, createAtlasScenario, decideAtlasRecommendation, getAtlasOperatingLayer, getAtlasWorkspace, syncAtlasEvents, uploadAtlasEvidence } from "./atlas-service";
+import { askAtlasIntelligence, completeOperationalControl, createAtlasScenario, decideAtlasRecommendation, decideAtlasScenario, getAtlasOperatingLayer, getAtlasWorkspace, syncAtlasEvents, uploadAtlasEvidence } from "./atlas-service";
 import { z } from "zod";
 
 export const appRouter = router({
@@ -46,6 +46,9 @@ export const appRouter = router({
     createScenario: protectedProcedure
       .input(z.object({ scopeType: z.enum(["facility", "line", "asset", "enterprise"]), scopeId: z.string().min(1).max(256).optional(), premise: z.string().trim().min(8).max(1200), assumptions: z.record(z.string(), z.unknown()).default({}) }))
       .mutation(({ ctx, input }) => createAtlasScenario(ctx.user.id, input)),
+    decideScenario: protectedProcedure
+      .input(z.object({ scenarioId: z.string().uuid(), decision: z.enum(["approved", "rejected"]), note: z.string().trim().max(1000).optional() }))
+      .mutation(({ ctx, input }) => decideAtlasScenario(ctx.user.id, input.scenarioId, input.decision, input.note)),
     decideRecommendation: protectedProcedure
       .input(z.object({
         recommendationId: z.string().uuid(),
