@@ -17,14 +17,18 @@ export const atlasPermissions = [
   "role:manage",
   "scenario:simulate",
   "policy:manage",
+  "network:view",
+  "network:request",
+  "network:publish",
+  "network:approve",
 ] as const;
 export type AtlasPermission = (typeof atlasPermissions)[number];
 
 const rolePermissions: Record<AtlasRole, readonly AtlasPermission[]> = {
-  operator: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "scenario:simulate"],
-  technician: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "scenario:simulate"],
-  inspector: ["workspace:view", "asset:view", "work:view", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "scenario:simulate"],
-  manager: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "recommendation:approve", "scenario:simulate"],
+  operator: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "scenario:simulate", "network:view", "network:request"],
+  technician: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "scenario:simulate", "network:view", "network:request"],
+  inspector: ["workspace:view", "asset:view", "work:view", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "scenario:simulate", "network:view"],
+  manager: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "recommendation:approve", "scenario:simulate", "network:view", "network:request", "network:publish", "network:approve"],
   executive: [...atlasPermissions],
   auditor: ["workspace:view", "asset:view", "work:view"],
 };
@@ -275,4 +279,106 @@ export function explainableRiskScore({ probability, impact, exposure, detectabil
   const inputs = [probability, impact, exposure, detectability].map((value) => Math.min(100, Math.max(0, value)));
   const score = Math.round((inputs[0] * 0.3) + (inputs[1] * 0.35) + (inputs[2] * 0.2) + (inputs[3] * 0.15));
   return { score, state: score >= 75 ? "critical" as const : score >= 55 ? "at_risk" as const : score >= 30 ? "watch" as const : "normal" as const };
+}
+
+export const atlasNetworkVisibility = ["private", "partner", "consortium", "public"] as const;
+export type AtlasNetworkVisibility = (typeof atlasNetworkVisibility)[number];
+
+export const atlasMatchObjectives = ["best_overall", "lowest_cost", "fastest", "highest_quality", "lowest_risk", "most_resilient", "lowest_impact"] as const;
+export type AtlasMatchObjective = (typeof atlasMatchObjectives)[number];
+
+export type AtlasNetworkParticipant = {
+  id: string;
+  name: string;
+  kind: "manufacturer" | "supplier" | "logistics" | "quality_provider" | "warehouse";
+  region: string;
+  trustState: "verified" | "provisional" | "restricted";
+  deliveryReliability: number;
+  qualityScore: number;
+  visibility: AtlasNetworkVisibility;
+};
+
+export type AtlasCapacityOffer = {
+  id: string;
+  participantId: string;
+  capability: string;
+  availableHours: number;
+  earliestStart: string;
+  leadTimeDays: number;
+  costIndex: number;
+  qualityScore: number;
+  reliabilityScore: number;
+  resilienceScore: number;
+  impactScore: number;
+  certifications: string[];
+  visibility: AtlasNetworkVisibility;
+};
+
+export type AtlasNetworkDemand = {
+  id: string;
+  title: string;
+  requiredCapability: string;
+  requiredHours: number;
+  dueInDays: number;
+  minimumQuality: number;
+  requiredCertification?: string;
+  region: string;
+};
+
+export type AtlasNetworkMatch = {
+  offerId: string;
+  participantId: string;
+  score: number;
+  objective: AtlasMatchObjective;
+  explanation: string[];
+  evidenceState: AtlasEvidenceState;
+};
+
+export type AtlasNetworkTransactionStage = "demand" | "offer" | "authorization" | "production" | "inspection" | "shipment" | "delivery" | "invoice" | "settlement";
+
+export type AtlasNetworkTransaction = {
+  id: string;
+  title: string;
+  stage: AtlasNetworkTransactionStage;
+  evidenceState: AtlasEvidenceState;
+  authorizationRequired: boolean;
+  partnerIds: string[];
+};
+
+export type AtlasResilienceSignal = {
+  title: string;
+  dependency: string;
+  state: AtlasOperatingState;
+  recoveryTime: string;
+  recoveryCost: string;
+  alternativePath: string;
+  evidenceState: AtlasEvidenceState;
+};
+
+export function canShareNetworkRecord(visibility: AtlasNetworkVisibility, context: "owner" | "partner" | "consortium" | "public") {
+  if (context === "owner") return true;
+  if (visibility === "private") return false;
+  if (visibility === "partner") return context === "partner" || context === "consortium";
+  if (visibility === "consortium") return context === "consortium";
+  return visibility === "public";
+}
+
+export function rankNetworkMatches(demand: AtlasNetworkDemand, offers: AtlasCapacityOffer[], objective: AtlasMatchObjective): AtlasNetworkMatch[] {
+  const candidates = offers.filter((offer) => offer.capability === demand.requiredCapability && offer.availableHours >= demand.requiredHours && offer.leadTimeDays <= demand.dueInDays && offer.qualityScore >= demand.minimumQuality && (!demand.requiredCertification || offer.certifications.includes(demand.requiredCertification)) && offer.visibility !== "private");
+  const scoreFor = (offer: AtlasCapacityOffer) => {
+    const onTime = Math.max(0, 100 - (offer.leadTimeDays / Math.max(demand.dueInDays, 1)) * 100);
+    const cost = Math.max(0, 100 - offer.costIndex);
+    const quality = offer.qualityScore;
+    const reliability = offer.reliabilityScore;
+    const resilience = offer.resilienceScore;
+    const impact = offer.impactScore;
+    if (objective === "lowest_cost") return cost;
+    if (objective === "fastest") return onTime;
+    if (objective === "highest_quality") return quality;
+    if (objective === "lowest_risk") return Math.round((reliability + quality + resilience) / 3);
+    if (objective === "most_resilient") return resilience;
+    if (objective === "lowest_impact") return impact;
+    return Math.round((onTime * 0.22) + (cost * 0.16) + (quality * 0.2) + (reliability * 0.2) + (resilience * 0.14) + (impact * 0.08));
+  };
+  return candidates.map((offer) => ({ offerId: offer.id, participantId: offer.participantId, score: scoreFor(offer), objective, evidenceState: "verified" as const, explanation: [`${offer.availableHours} verified hours available`, `${offer.leadTimeDays}-day lead time for a ${demand.dueInDays}-day requirement`, `Quality score ${offer.qualityScore} and reliability ${offer.reliabilityScore}`] })).sort((left, right) => right.score - left.score);
 }

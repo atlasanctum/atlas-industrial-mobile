@@ -29,6 +29,9 @@ export default function RootLayout() {
               <Stack.Screen name="agents" options={{ presentation: "card" }} />
               <Stack.Screen name="governance" options={{ presentation: "card" }} />
               <Stack.Screen name="pilot" options={{ presentation: "card" }} />
+              <Stack.Screen name="network" options={{ presentation: "card" }} />
+              <Stack.Screen name="partner/[id]" options={{ presentation: "card" }} />
+              <Stack.Screen name="network-transaction" options={{ presentation: "card" }} />
               <Stack.Screen name="inspection" options={{ presentation: "card" }} />
               <Stack.Screen name="voice-note" options={{ presentation: "card" }} />
               <Stack.Screen name="commerce" options={{ presentation: "card" }} />

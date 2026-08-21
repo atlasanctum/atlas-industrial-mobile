@@ -60,3 +60,7 @@
 - [x] Finalize the in-project governed recovery-pilot workflow and production-readiness safeguards.
 - [x] Consolidate the migration, twin, scenario, evidence, and device-test handoff into a final rollout package.
 - [x] Validate and deliver the completed in-project Atlas operating-layer rollout.
+- [x] Extract and prioritize Master Prompt 3’s industrial-network, capacity, trust, matching, and transaction requirements.
+- [x] Extend the Atlas shared models, Supabase migration, and server procedures for privacy-preserving network coordination.
+- [x] Build network exchange, capacity discovery, partner trust, matching, and transaction-readiness mobile experiences.
+- [x] Validate and deliver the Atlas industrial-network expansion.

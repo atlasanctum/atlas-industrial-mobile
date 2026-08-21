@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { askAtlasIntelligence, completeOperationalControl, createAtlasScenario, decideAtlasRecommendation, decideAtlasScenario, getAtlasOperatingLayer, getAtlasWorkspace, syncAtlasEvents, uploadAtlasEvidence } from "./atlas-service";
+import { askAtlasIntelligence, completeOperationalControl, createAtlasScenario, decideAtlasRecommendation, decideAtlasScenario, getAtlasNetwork, getAtlasOperatingLayer, getAtlasWorkspace, requestAtlasNetworkMatch, syncAtlasEvents, uploadAtlasEvidence } from "./atlas-service";
 import { z } from "zod";
 
 export const appRouter = router({
@@ -21,6 +21,7 @@ export const appRouter = router({
   atlas: router({
     workspace: protectedProcedure.query(({ ctx }) => getAtlasWorkspace(ctx.user.id)),
     operatingLayer: protectedProcedure.query(({ ctx }) => getAtlasOperatingLayer(ctx.user.id)),
+    network: protectedProcedure.query(({ ctx }) => getAtlasNetwork(ctx.user.id)),
     syncEvents: protectedProcedure
       .input(z.object({
         events: z.array(z.object({
@@ -49,6 +50,9 @@ export const appRouter = router({
     decideScenario: protectedProcedure
       .input(z.object({ scenarioId: z.string().uuid(), decision: z.enum(["approved", "rejected"]), note: z.string().trim().max(1000).optional() }))
       .mutation(({ ctx, input }) => decideAtlasScenario(ctx.user.id, input.scenarioId, input.decision, input.note)),
+    requestNetworkMatch: protectedProcedure
+      .input(z.object({ demandId: z.string().uuid(), offerId: z.string().uuid(), objective: z.enum(["best_overall", "lowest_cost", "fastest", "highest_quality", "lowest_risk", "most_resilient", "lowest_impact"]) }))
+      .mutation(({ ctx, input }) => requestAtlasNetworkMatch(ctx.user.id, input)),
     decideRecommendation: protectedProcedure
       .input(z.object({
         recommendationId: z.string().uuid(),

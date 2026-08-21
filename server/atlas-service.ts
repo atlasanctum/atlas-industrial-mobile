@@ -17,10 +17,14 @@ import {
   type AtlasMaintenanceSignal,
   type AtlasMember,
   type AtlasOperationalControl,
+  type AtlasCapacityOffer,
+  type AtlasMatchObjective,
+  type AtlasNetworkDemand,
   type AtlasPermission,
   type AtlasRole,
   type AtlasTelemetryReading,
   type GroundedRecommendation,
+  rankNetworkMatches,
 } from "../shared/atlas-domain";
 
 type SupabaseMemberRow = {
@@ -225,6 +229,62 @@ export async function decideAtlasScenario(manusUserId: number, scenarioId: strin
   await supabaseRequest({ path: `atlas_scenarios?id=eq.${encodeURIComponent(scenarioId)}`, method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: decision, updated_at: new Date().toISOString() }) });
   await supabaseRequest({ path: "atlas_audit_log", method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ facility_id: scenario.facility_id ?? null, actor_member_id: member.id, action_type: `scenario_${decision}`, target_type: "scenario", target_id: scenarioId, metadata: { note: note ?? null } }) });
   return { scenarioId, decision };
+}
+
+function networkRecordVisible(record: AtlasRecord, member: AtlasMember) {
+  if (record.owner_member_id === member.id) return true;
+  if (record.visibility === "public") return true;
+  const allowlist = Array.isArray(record.allowed_member_ids) ? record.allowed_member_ids : [];
+  return allowlist.includes(member.id);
+}
+
+function toNetworkOffer(record: AtlasRecord): AtlasCapacityOffer | null {
+  const visibility = record.visibility;
+  if (typeof record.id !== "string" || typeof record.organization_id !== "string" || typeof record.capability !== "string" || typeof record.available_hours !== "number" || typeof record.lead_time_days !== "number" || typeof record.cost_index !== "number" || typeof record.quality_score !== "number" || typeof record.reliability_score !== "number" || typeof record.resilience_score !== "number" || typeof record.impact_score !== "number" || (visibility !== "private" && visibility !== "partner" && visibility !== "consortium" && visibility !== "public")) return null;
+  return { id: record.id, participantId: record.organization_id, capability: record.capability, availableHours: record.available_hours, earliestStart: typeof record.earliest_start === "string" ? record.earliest_start : "Availability pending", leadTimeDays: record.lead_time_days, costIndex: record.cost_index, qualityScore: record.quality_score, reliabilityScore: record.reliability_score, resilienceScore: record.resilience_score, impactScore: record.impact_score, certifications: Array.isArray(record.certifications) ? record.certifications.filter((value): value is string => typeof value === "string") : [], visibility };
+}
+
+function toNetworkDemand(record: AtlasRecord): AtlasNetworkDemand | null {
+  if (typeof record.id !== "string" || typeof record.title !== "string" || typeof record.required_capability !== "string" || typeof record.required_hours !== "number") return null;
+  const dueAt = typeof record.due_at === "string" ? Date.parse(record.due_at) : NaN;
+  const dueInDays = Number.isFinite(dueAt) ? Math.max(1, Math.ceil((dueAt - Date.now()) / 86_400_000)) : 30;
+  return { id: record.id, title: record.title, requiredCapability: record.required_capability, requiredHours: record.required_hours, dueInDays, minimumQuality: typeof record.minimum_quality === "number" ? record.minimum_quality : 0, requiredCertification: typeof record.required_certification === "string" ? record.required_certification : undefined, region: typeof record.region === "string" ? record.region : "Unspecified" };
+}
+
+export async function getAtlasNetwork(manusUserId: number) {
+  const member = requireAtlasPermission(await getAtlasMember(manusUserId), "network:view");
+  const [organizations, offers, demands, matches, transactions, certificates] = await Promise.all([
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_network_organizations?select=*&order=display_name.asc&limit=200", method: "GET" }),
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_network_capacity_offers?active=eq.true&select=*&order=updated_at.desc&limit=200", method: "GET" }),
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_network_demands?select=*&order=created_at.desc&limit=100", method: "GET" }),
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_network_matches?select=*&order=created_at.desc&limit=100", method: "GET" }),
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_network_transactions?select=*&order=updated_at.desc&limit=100", method: "GET" }),
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_network_certificates?select=*&order=created_at.desc&limit=200", method: "GET" }),
+  ]);
+  const visibleOffers = offers.filter((record) => networkRecordVisible(record, member));
+  const visibleDemandIds = new Set(demands.filter((record) => networkRecordVisible(record, member)).map((record) => record.id));
+  return { member, organizations, offers: visibleOffers, demands: demands.filter((record) => visibleDemandIds.has(record.id)), matches: matches.filter((record) => visibleDemandIds.has(record.demand_id)), transactions, certificates };
+}
+
+export async function requestAtlasNetworkMatch(manusUserId: number, input: { demandId: string; offerId: string; objective: AtlasMatchObjective }) {
+  const member = requireAtlasPermission(await getAtlasMember(manusUserId), "network:request");
+  const [demandRows, offerRows] = await Promise.all([
+    supabaseRequest<AtlasRecord[]>({ path: `atlas_network_demands?id=eq.${encodeURIComponent(input.demandId)}&select=*&limit=1`, method: "GET" }),
+    supabaseRequest<AtlasRecord[]>({ path: `atlas_network_capacity_offers?id=eq.${encodeURIComponent(input.offerId)}&active=eq.true&select=*&limit=1`, method: "GET" }),
+  ]);
+  const demandRecord = demandRows[0];
+  const offerRecord = offerRows[0];
+  if (!demandRecord || !offerRecord) throw new Error("Network demand or capacity offer was not found.");
+  if (!networkRecordVisible(demandRecord, member) || !networkRecordVisible(offerRecord, member)) throw new Error("This network record is not visible to your role and sharing scope.");
+  const demand = toNetworkDemand(demandRecord);
+  const offer = toNetworkOffer(offerRecord);
+  if (!demand || !offer) throw new Error("Network record has an invalid matching shape.");
+  const score = rankNetworkMatches(demand, [offer], input.objective)[0];
+  if (!score) throw new Error("The selected capacity does not satisfy the current demand constraints.");
+  const matchId = randomUUID();
+  await supabaseRequest({ path: "atlas_network_matches", method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ id: matchId, demand_id: demand.id, offer_id: offer.id, requested_by_member_id: member.id, objective: input.objective, score: score.score, explanation: score.explanation, evidence_state: score.evidenceState, status: "awaiting_approval" }) });
+  await supabaseRequest({ path: "atlas_network_audit_log", method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ actor_member_id: member.id, action_type: "network_match_requested", target_type: "network_match", target_id: matchId, data_visibility: offer.visibility, provenance: { demandId: demand.id, offerId: offer.id, objective: input.objective } }) });
+  return { matchId, status: "awaiting_approval" as const, score: score.score };
 }
 
 function recordsForGrounding(workspace: Awaited<ReturnType<typeof getAtlasWorkspace>>) {
