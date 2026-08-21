@@ -180,6 +180,41 @@ export async function syncAtlasEvents(manusUserId: number, inputs: AtlasEventInp
   return { accepted, actorId: member.id };
 }
 
+export async function getAtlasOperatingLayer(manusUserId: number) {
+  const workspace = await getAtlasWorkspace(manusUserId);
+  const member = requireAtlasPermission(workspace.member, "workspace:view");
+  const [relationships, twins, memory, scenarios, policies, agentRuns] = await Promise.all([
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_relationships?select=*&order=created_at.desc&limit=200", method: "GET" }),
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_twin_snapshots?select=*&order=observed_at.desc&limit=200", method: "GET" }),
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_memory_entries?select=*&order=occurred_at.desc&limit=100", method: "GET" }),
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_scenarios?select=*&order=created_at.desc&limit=50", method: "GET" }),
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_policies?select=*&order=updated_at.desc&limit=100", method: "GET" }),
+    supabaseRequest<AtlasRecord[]>({ path: "atlas_agent_runs?select=*&order=created_at.desc&limit=100", method: "GET" }),
+  ]);
+  return {
+    member,
+    relationships: filterByFacility(relationships, member),
+    twinSnapshots: filterByFacility(twins, member),
+    memoryEntries: filterByFacility(memory, member),
+    scenarios: filterByFacility(scenarios, member),
+    policies: filterByFacility(policies, member),
+    agentRuns: filterByFacility(agentRuns, member),
+  };
+}
+
+export async function createAtlasScenario(manusUserId: number, input: { scopeType: "facility" | "line" | "asset" | "enterprise"; scopeId?: string; premise: string; assumptions: Record<string, unknown> }) {
+  const member = requireAtlasPermission(await getAtlasMember(manusUserId), "scenario:simulate");
+  const scenarioId = randomUUID();
+  await supabaseRequest({
+    path: "atlas_scenarios",
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ id: scenarioId, facility_id: member.facilityIds[0] ?? null, requested_by_member_id: member.id, scope_type: input.scopeType, scope_id: input.scopeId ?? null, premise: input.premise, assumptions: input.assumptions, projection: {}, evidence_state: "estimated", required_role: "manager", status: "awaiting_approval" }),
+  });
+  await supabaseRequest({ path: "atlas_audit_log", method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ facility_id: member.facilityIds[0] ?? null, actor_member_id: member.id, action_type: "scenario_requested", target_type: "scenario", target_id: scenarioId, metadata: { scopeType: input.scopeType, scopeId: input.scopeId ?? null } }) });
+  return { scenarioId, status: "awaiting_approval" as const, requiredRole: "manager" as const };
+}
+
 function recordsForGrounding(workspace: Awaited<ReturnType<typeof getAtlasWorkspace>>) {
   return {
     assets: workspace.assets.slice(0, 20).map((record) => ({ id: record.id, name: record.name, status: record.status, facility_id: record.facility_id, updated_at: record.updated_at })),

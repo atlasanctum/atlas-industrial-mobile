@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { askAtlasIntelligence, completeOperationalControl, decideAtlasRecommendation, getAtlasWorkspace, syncAtlasEvents, uploadAtlasEvidence } from "./atlas-service";
+import { askAtlasIntelligence, completeOperationalControl, createAtlasScenario, decideAtlasRecommendation, getAtlasOperatingLayer, getAtlasWorkspace, syncAtlasEvents, uploadAtlasEvidence } from "./atlas-service";
 import { z } from "zod";
 
 export const appRouter = router({
@@ -20,6 +20,7 @@ export const appRouter = router({
   }),
   atlas: router({
     workspace: protectedProcedure.query(({ ctx }) => getAtlasWorkspace(ctx.user.id)),
+    operatingLayer: protectedProcedure.query(({ ctx }) => getAtlasOperatingLayer(ctx.user.id)),
     syncEvents: protectedProcedure
       .input(z.object({
         events: z.array(z.object({
@@ -42,6 +43,9 @@ export const appRouter = router({
     askIntelligence: protectedProcedure
       .input(z.object({ question: z.string().trim().min(4).max(1000) }))
       .mutation(({ ctx, input }) => askAtlasIntelligence(ctx.user.id, input.question)),
+    createScenario: protectedProcedure
+      .input(z.object({ scopeType: z.enum(["facility", "line", "asset", "enterprise"]), scopeId: z.string().min(1).max(256).optional(), premise: z.string().trim().min(8).max(1200), assumptions: z.record(z.string(), z.unknown()).default({}) }))
+      .mutation(({ ctx, input }) => createAtlasScenario(ctx.user.id, input)),
     decideRecommendation: protectedProcedure
       .input(z.object({
         recommendationId: z.string().uuid(),

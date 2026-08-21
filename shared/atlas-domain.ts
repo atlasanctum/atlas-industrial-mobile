@@ -15,14 +15,16 @@ export const atlasPermissions = [
   "evidence:upload",
   "telemetry:view",
   "role:manage",
+  "scenario:simulate",
+  "policy:manage",
 ] as const;
 export type AtlasPermission = (typeof atlasPermissions)[number];
 
 const rolePermissions: Record<AtlasRole, readonly AtlasPermission[]> = {
-  operator: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request"],
-  technician: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request"],
-  inspector: ["workspace:view", "asset:view", "work:view", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request"],
-  manager: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "recommendation:approve"],
+  operator: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "scenario:simulate"],
+  technician: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "scenario:simulate"],
+  inspector: ["workspace:view", "asset:view", "work:view", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "scenario:simulate"],
+  manager: ["workspace:view", "asset:view", "work:view", "work:act", "event:record", "scan:record", "control:complete", "evidence:upload", "telemetry:view", "intelligence:ask", "recommendation:request", "recommendation:approve", "scenario:simulate"],
   executive: [...atlasPermissions],
   auditor: ["workspace:view", "asset:view", "work:view"],
 };
@@ -167,4 +169,110 @@ export function normalizeGroundedRecommendation(input: Partial<Omit<GroundedReco
     expectedOutcome: String(input.expectedOutcome ?? "Outcome must be verified after authorized execution."),
     citations: Array.isArray(input.citations) ? input.citations.filter((citation): citation is GroundedRecommendation["citations"][number] => Boolean(citation && typeof citation.recordType === "string" && typeof citation.recordId === "string" && typeof citation.label === "string")) : [],
   };
+}
+
+export const atlasEvidenceStates = ["verified", "likely", "estimated", "unknown"] as const;
+export type AtlasEvidenceState = (typeof atlasEvidenceStates)[number];
+
+export const atlasOperatingStates = ["normal", "watch", "at_risk", "critical"] as const;
+export type AtlasOperatingState = (typeof atlasOperatingStates)[number];
+
+export type AtlasHealthDimension = {
+  id: "production" | "capacity" | "inventory" | "logistics" | "quality" | "safety" | "finance" | "projects" | "resilience";
+  label: string;
+  value: number;
+  state: AtlasOperatingState;
+  evidenceState: AtlasEvidenceState;
+  explanation: string;
+};
+
+export type AtlasDigitalTwin = {
+  assetId: string;
+  title: string;
+  facility: string;
+  line: string;
+  currentState: string;
+  historicalState: string;
+  expectedState: string;
+  predictedState: string;
+  recommendation: string;
+  evidenceState: AtlasEvidenceState;
+  linkedEventIds: string[];
+};
+
+export type AtlasCausalLink = {
+  id: string;
+  observation: string;
+  contributor: string;
+  cause: string;
+  verification: string;
+  evidenceState: AtlasEvidenceState;
+  citations: { recordType: string; recordId: string; label: string }[];
+};
+
+export type AtlasMemoryEntry = {
+  id: string;
+  timestamp: string;
+  event: string;
+  decision: string;
+  outcome: string;
+  lesson: string;
+  owner: string;
+  evidenceState: AtlasEvidenceState;
+  linkedAssetId?: string;
+  linkedEventIds: string[];
+};
+
+export type AtlasScenario = {
+  id: string;
+  title: string;
+  premise: string;
+  scope: "facility" | "line" | "asset" | "enterprise";
+  expectedProduction: string;
+  deliveryImpact: string;
+  marginImpact: string;
+  riskState: AtlasOperatingState;
+  recommendation: string;
+  evidenceState: AtlasEvidenceState;
+  requiredRole: AtlasRole;
+};
+
+export const atlasAgentRoles = ["operations", "asset", "supply", "logistics", "finance", "quality", "safety", "project", "executive"] as const;
+export type AtlasAgentRole = (typeof atlasAgentRoles)[number];
+
+export type AtlasAgentFinding = {
+  agent: AtlasAgentRole;
+  title: string;
+  finding: string;
+  evidenceState: AtlasEvidenceState;
+  riskState: AtlasOperatingState;
+  linkedRecordIds: string[];
+};
+
+export type AtlasApprovalPolicy = {
+  id: string;
+  title: string;
+  risk: "low" | "medium" | "high" | "critical";
+  requiredRoles: AtlasRole[];
+  autoExecute: boolean;
+  description: string;
+};
+
+export function operatingStateFor(value: number): AtlasOperatingState {
+  if (value >= 90) return "normal";
+  if (value >= 75) return "watch";
+  if (value >= 55) return "at_risk";
+  return "critical";
+}
+
+export function weightedIndustrialHealth(dimensions: AtlasHealthDimension[]) {
+  if (dimensions.length === 0) return { value: 0, state: "critical" as const };
+  const value = Math.round(dimensions.reduce((total, dimension) => total + dimension.value, 0) / dimensions.length);
+  return { value, state: operatingStateFor(value) };
+}
+
+export function explainableRiskScore({ probability, impact, exposure, detectability }: { probability: number; impact: number; exposure: number; detectability: number }) {
+  const inputs = [probability, impact, exposure, detectability].map((value) => Math.min(100, Math.max(0, value)));
+  const score = Math.round((inputs[0] * 0.3) + (inputs[1] * 0.35) + (inputs[2] * 0.2) + (inputs[3] * 0.15));
+  return { score, state: score >= 75 ? "critical" as const : score >= 55 ? "at_risk" as const : score >= 30 ? "watch" as const : "normal" as const };
 }

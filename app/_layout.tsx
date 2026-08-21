@@ -22,6 +22,12 @@ export default function RootLayout() {
               <Stack.Screen name="task/[id]" options={{ presentation: "card" }} />
               <Stack.Screen name="project/[id]" options={{ presentation: "card" }} />
               <Stack.Screen name="operations" options={{ presentation: "card" }} />
+              <Stack.Screen name="tower" options={{ presentation: "card" }} />
+              <Stack.Screen name="twin/[id]" options={{ presentation: "card" }} />
+              <Stack.Screen name="memory" options={{ presentation: "card" }} />
+              <Stack.Screen name="scenario" options={{ presentation: "card" }} />
+              <Stack.Screen name="agents" options={{ presentation: "card" }} />
+              <Stack.Screen name="governance" options={{ presentation: "card" }} />
               <Stack.Screen name="inspection" options={{ presentation: "card" }} />
               <Stack.Screen name="voice-note" options={{ presentation: "card" }} />
               <Stack.Screen name="commerce" options={{ presentation: "card" }} />

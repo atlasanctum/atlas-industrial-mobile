@@ -137,6 +137,100 @@ create table if not exists public.atlas_telemetry (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.atlas_relationships (
+  id uuid primary key default gen_random_uuid(),
+  facility_id uuid references public.atlas_facilities(id),
+  source_type text not null,
+  source_id text not null,
+  relationship_type text not null,
+  target_type text not null,
+  target_id text not null,
+  provenance text not null default 'operational_event',
+  confidence text not null default 'unknown' check (confidence in ('verified', 'likely', 'estimated', 'unknown')),
+  evidence_event_ids uuid[] not null default '{}',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.atlas_twin_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  asset_id uuid references public.atlas_assets(id),
+  facility_id uuid references public.atlas_facilities(id),
+  state_type text not null check (state_type in ('current', 'historical', 'expected', 'predicted')),
+  state jsonb not null,
+  evidence_state text not null default 'unknown' check (evidence_state in ('verified', 'likely', 'estimated', 'unknown')),
+  observed_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.atlas_memory_entries (
+  id uuid primary key default gen_random_uuid(),
+  facility_id uuid references public.atlas_facilities(id),
+  asset_id uuid references public.atlas_assets(id),
+  event_id uuid references public.atlas_events(id),
+  actor_member_id uuid references public.atlas_members(id),
+  event_summary text not null,
+  decision_summary text,
+  outcome_summary text,
+  lesson text,
+  evidence_state text not null default 'unknown' check (evidence_state in ('verified', 'likely', 'estimated', 'unknown')),
+  occurred_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.atlas_scenarios (
+  id uuid primary key default gen_random_uuid(),
+  facility_id uuid references public.atlas_facilities(id),
+  requested_by_member_id uuid references public.atlas_members(id),
+  scope_type text not null,
+  scope_id text,
+  premise text not null,
+  assumptions jsonb not null default '{}',
+  projection jsonb not null default '{}',
+  evidence_state text not null default 'estimated' check (evidence_state in ('verified', 'likely', 'estimated', 'unknown')),
+  required_role text not null default 'manager' check (required_role in ('manager', 'executive')),
+  status text not null default 'draft' check (status in ('draft', 'awaiting_approval', 'approved', 'rejected', 'verified')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.atlas_policies (
+  id uuid primary key default gen_random_uuid(),
+  facility_id uuid references public.atlas_facilities(id),
+  title text not null,
+  domain text not null,
+  risk_level text not null check (risk_level in ('low', 'medium', 'high', 'critical')),
+  conditions jsonb not null default '{}',
+  action jsonb not null default '{}',
+  required_roles text[] not null default '{}',
+  auto_execute boolean not null default false,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.atlas_agent_runs (
+  id uuid primary key default gen_random_uuid(),
+  facility_id uuid references public.atlas_facilities(id),
+  triggered_by_event_id uuid references public.atlas_events(id),
+  agent_role text not null check (agent_role in ('operations', 'asset', 'supply', 'logistics', 'finance', 'quality', 'safety', 'project', 'executive')),
+  context jsonb not null default '{}',
+  finding jsonb not null default '{}',
+  evidence_state text not null default 'unknown' check (evidence_state in ('verified', 'likely', 'estimated', 'unknown')),
+  status text not null default 'completed' check (status in ('queued', 'running', 'completed', 'failed')),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.atlas_audit_log (
+  id uuid primary key default gen_random_uuid(),
+  facility_id uuid references public.atlas_facilities(id),
+  actor_member_id uuid references public.atlas_members(id),
+  action_type text not null,
+  target_type text not null,
+  target_id text not null,
+  metadata jsonb not null default '{}',
+  created_at timestamptz not null default now()
+);
+
 create index if not exists atlas_assets_facility_idx on public.atlas_assets(facility_id);
 create index if not exists atlas_work_items_facility_idx on public.atlas_work_items(facility_id, updated_at desc);
 create index if not exists atlas_events_facility_occurred_idx on public.atlas_events(facility_id, occurred_at desc);
@@ -144,6 +238,12 @@ create index if not exists atlas_recommendations_facility_created_idx on public.
 create index if not exists atlas_controls_facility_status_idx on public.atlas_operational_controls(facility_id, status, updated_at desc);
 create index if not exists atlas_evidence_event_idx on public.atlas_evidence(event_client_id, created_at desc);
 create index if not exists atlas_telemetry_asset_observed_idx on public.atlas_telemetry(asset_id, observed_at desc);
+create index if not exists atlas_relationships_source_idx on public.atlas_relationships(source_type, source_id, relationship_type);
+create index if not exists atlas_twin_asset_observed_idx on public.atlas_twin_snapshots(asset_id, observed_at desc);
+create index if not exists atlas_memory_facility_occurred_idx on public.atlas_memory_entries(facility_id, occurred_at desc);
+create index if not exists atlas_scenarios_facility_created_idx on public.atlas_scenarios(facility_id, created_at desc);
+create index if not exists atlas_agent_runs_facility_created_idx on public.atlas_agent_runs(facility_id, created_at desc);
+create index if not exists atlas_audit_facility_created_idx on public.atlas_audit_log(facility_id, created_at desc);
 
 alter table public.atlas_members enable row level security;
 alter table public.atlas_facilities enable row level security;
@@ -155,6 +255,13 @@ alter table public.atlas_approvals enable row level security;
 alter table public.atlas_operational_controls enable row level security;
 alter table public.atlas_evidence enable row level security;
 alter table public.atlas_telemetry enable row level security;
+alter table public.atlas_relationships enable row level security;
+alter table public.atlas_twin_snapshots enable row level security;
+alter table public.atlas_memory_entries enable row level security;
+alter table public.atlas_scenarios enable row level security;
+alter table public.atlas_policies enable row level security;
+alter table public.atlas_agent_runs enable row level security;
+alter table public.atlas_audit_log enable row level security;
 
 -- Atlas uses a server-only service-role key. Do not add anonymous policies unless
 -- a separate client-side data access design has been reviewed and approved.
