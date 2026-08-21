@@ -1,15 +1,17 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon, Surface } from "@/components/atlas-ui";
-import { useAtlasEventQueue, useAtlasWorkspace } from "@/hooks/use-atlas-live";
+import { useAtlasWorkspace } from "@/hooks/use-atlas-live";
+import { useAtlasSync } from "@/components/atlas-sync-provider";
 import { startOAuthLogin } from "@/constants/oauth";
 
 export function LiveWorkspaceStatus() {
   const workspace = useAtlasWorkspace();
-  const queue = useAtlasEventQueue();
+  const sync = useAtlasSync();
+  const queue = sync.events;
   const state = !workspace.auth.isAuthenticated ? "Sign in to activate live workspace" : workspace.isLoading ? "Connecting to live workspace" : workspace.data?.status === "ready" ? `${workspace.data.member?.role ?? "member"} access · live data` : workspace.data?.status === "awaiting_role" ? "Awaiting role assignment" : workspace.error ? "Live workspace requires deployment schema" : "Deployment configuration required";
   const tone = workspace.data?.status === "ready" ? "#21D4C2" : "#F5B84B";
-  return <Surface style={styles.card}><View style={[styles.icon, { backgroundColor: `${tone}20` }]}><Icon name={workspace.data?.status === "ready" ? "cloud-done" : "cloud-queue"} color={tone} size={18} /></View><View style={styles.copy}><Text style={styles.label}>LIVE WORKSPACE</Text><Text style={styles.state}>{state}</Text>{queue.queue.length > 0 ? <Text style={styles.queue}>{queue.queue.length} field event{queue.queue.length === 1 ? "" : "s"} queued for sync</Text> : null}</View>{!workspace.auth.isAuthenticated ? <Pressable onPress={() => void startOAuthLogin()} style={styles.sync}><Text style={styles.syncText}>Sign in</Text></Pressable> : queue.queue.length > 0 && queue.online ? <Pressable onPress={() => void queue.flush()} style={styles.sync}><Text style={styles.syncText}>{queue.isSyncing ? "Syncing" : "Sync"}</Text></Pressable> : null}</Surface>;
+  return <Surface style={styles.card}><View style={[styles.icon, { backgroundColor: `${tone}20` }]}><Icon name={workspace.data?.status === "ready" ? "cloud-done" : "cloud-queue"} color={tone} size={18} /></View><View style={styles.copy}><Text style={styles.label}>LIVE WORKSPACE</Text><Text style={styles.state}>{state}</Text>{sync.pendingCount > 0 ? <Text style={styles.queue}>{sync.pendingCount} field item{sync.pendingCount === 1 ? "" : "s"} queued for ordered sync</Text> : null}</View>{!workspace.auth.isAuthenticated ? <Pressable onPress={() => void startOAuthLogin()} style={styles.sync}><Text style={styles.syncText}>Sign in</Text></Pressable> : sync.pendingCount > 0 && sync.online ? <Pressable onPress={() => void sync.syncAll()} style={styles.sync}><Text style={styles.syncText}>{sync.isSyncing ? "Syncing" : "Sync"}</Text></Pressable> : null}</Surface>;
 }
 
 const styles = StyleSheet.create({

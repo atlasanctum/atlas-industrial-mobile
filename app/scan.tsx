@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon, IconAction, PrimaryButton, SeverityPill, Surface } from "@/components/atlas-ui";
 import { ScreenContainer } from "@/components/screen-container";
-import { useAtlasEventQueue } from "@/hooks/use-atlas-live";
+import { useAtlasSync } from "@/components/atlas-sync-provider";
 import { haptic } from "@/lib/haptics";
 
 function parseAtlasIdentity(value: string) {
@@ -16,7 +16,7 @@ function parseAtlasIdentity(value: string) {
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedValue, setScannedValue] = useState<string | null>(null);
-  const { enqueue, queue, online } = useAtlasEventQueue();
+  const { events: { enqueue, queue, online } } = useAtlasSync();
 
   const recordScan = async ({ data, type }: BarcodeScanningResult) => {
     if (scannedValue) return;

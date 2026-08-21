@@ -5,7 +5,7 @@ import { markEvidenceUploaded, readEvidenceQueue, recordEvidenceAttempt, removeU
 import { trpc } from "@/lib/trpc";
 import type { AtlasEvidenceDraft } from "@/shared/atlas-domain";
 
-export function useAtlasEvidenceQueue() {
+export function useAtlasEvidenceQueue({ autoFlush = true }: { autoFlush?: boolean } = {}) {
   const network = Network.useNetworkState();
   const upload = trpc.atlas.uploadEvidence.useMutation();
   const [items, setItems] = useState<AtlasEvidenceDraft[]>([]);
@@ -44,8 +44,8 @@ export function useAtlasEvidenceQueue() {
 
   useEffect(() => {
     if (!online) { autoFlushAttempted.current = false; return; }
-    if (loaded && items.length > 0 && !autoFlushAttempted.current) { autoFlushAttempted.current = true; void flush(); }
-  }, [flush, items.length, loaded, online]);
+    if (autoFlush && loaded && items.length > 0 && !autoFlushAttempted.current) { autoFlushAttempted.current = true; void flush(); }
+  }, [autoFlush, flush, items.length, loaded, online]);
 
   const queueFile = useCallback(async (input: EvidenceInput) => {
     const draft = await queueEvidenceFile(input);

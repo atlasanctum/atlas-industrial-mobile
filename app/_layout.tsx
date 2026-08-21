@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { AtlasApiProvider } from "@/components/atlas-api-provider";
 import { AtlasToast } from "@/components/atlas-runtime";
+import { AtlasSyncProvider } from "@/components/atlas-sync-provider";
 import { AtlasProvider } from "@/lib/atlas-store";
 import { ThemeProvider } from "@/lib/theme-provider";
 
@@ -12,6 +13,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <AtlasApiProvider>
+          <AtlasSyncProvider>
           <AtlasProvider>
             <StatusBar style="light" />
             <Stack screenOptions={{ headerShown: false, animation: "fade" }}>
@@ -27,6 +29,7 @@ export default function RootLayout() {
             </Stack>
             <AtlasToast />
           </AtlasProvider>
+          </AtlasSyncProvider>
         </AtlasApiProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

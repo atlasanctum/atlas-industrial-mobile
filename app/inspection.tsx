@@ -5,8 +5,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 
 import { Icon, IconAction, PrimaryButton, SeverityPill, Surface } from "@/components/atlas-ui";
 import { ScreenContainer } from "@/components/screen-container";
-import { useAtlasEvidenceQueue } from "@/hooks/use-atlas-evidence";
-import { useAtlasEventQueue } from "@/hooks/use-atlas-live";
+import { useAtlasSync } from "@/components/atlas-sync-provider";
 import { useAtlas } from "@/lib/atlas-store";
 
 const inspectionSteps = [
@@ -21,8 +20,9 @@ export default function InspectionScreen() {
   const [complete, setComplete] = useState<string[]>([]);
   const [evidence, setEvidence] = useState("");
   const [photo, setPhoto] = useState<PhotoEvidence | null>(null);
-  const { enqueue, online, queue } = useAtlasEventQueue();
-  const evidenceQueue = useAtlasEvidenceQueue();
+  const sync = useAtlasSync();
+  const { enqueue, online, queue } = sync.events;
+  const evidenceQueue = sync.evidence;
   const { createTask, notify } = useAtlas();
   const ready = complete.length === inspectionSteps.length && evidence.trim().length >= 8;
   const missing = useMemo(() => inspectionSteps.filter((step) => !complete.includes(step.id)).length, [complete]);

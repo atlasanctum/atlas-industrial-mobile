@@ -5,8 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 
 import { Icon, IconAction, PrimaryButton, SeverityPill, Surface } from "@/components/atlas-ui";
 import { ScreenContainer } from "@/components/screen-container";
-import { useAtlasEvidenceQueue } from "@/hooks/use-atlas-evidence";
-import { useAtlasEventQueue } from "@/hooks/use-atlas-live";
+import { useAtlasSync } from "@/components/atlas-sync-provider";
 import { useAtlas } from "@/lib/atlas-store";
 
 function clock(seconds: number) { const rounded = Math.max(0, Math.floor(seconds)); return `${String(Math.floor(rounded / 60)).padStart(2, "0")}:${String(rounded % 60).padStart(2, "0")}`; }
@@ -16,8 +15,9 @@ export default function VoiceNoteScreen() {
   const recorderState = useAudioRecorderState(recorder);
   const [uri, setUri] = useState<string | null>(null);
   const [summary, setSummary] = useState("");
-  const { enqueue, online } = useAtlasEventQueue();
-  const evidenceQueue = useAtlasEvidenceQueue();
+  const sync = useAtlasSync();
+  const { enqueue, online } = sync.events;
+  const evidenceQueue = sync.evidence;
   const { createTask, notify } = useAtlas();
 
   const toggleRecording = async () => {

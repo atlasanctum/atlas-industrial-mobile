@@ -11,7 +11,7 @@ export function useAtlasWorkspace() {
   return { ...workspace, auth };
 }
 
-export function useAtlasEventQueue() {
+export function useAtlasEventQueue({ autoFlush = true }: { autoFlush?: boolean } = {}) {
   const network = Network.useNetworkState();
   const sync = trpc.atlas.syncEvents.useMutation();
   const [queue, setQueue] = useState<QueuedAtlasEvent[]>([]);
@@ -48,11 +48,11 @@ export function useAtlasEventQueue() {
       autoSyncAttempted.current = false;
       return;
     }
-    if (isLoaded && queue.length > 0 && !autoSyncAttempted.current) {
+    if (autoFlush && isLoaded && queue.length > 0 && !autoSyncAttempted.current) {
       autoSyncAttempted.current = true;
       void flush();
     }
-  }, [flush, isLoaded, online, queue.length]);
+  }, [autoFlush, flush, isLoaded, online, queue.length]);
 
   const enqueue = useCallback(async (...args: Parameters<typeof enqueueAtlasEvent>) => {
     const event = await enqueueAtlasEvent(...args);

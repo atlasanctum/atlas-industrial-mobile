@@ -42,3 +42,10 @@
 - [ ] Validate and deliver the production execution outcome.
 - [x] Strengthen Atlas operational safety and runtime readiness safeguards while Supabase migration access is pending.
 - [x] Validate and deliver the continued Atlas development update.
+- [ ] Collect Supabase Management API access and apply the production Atlas schema.
+- [ ] Insert and verify the first controlled telemetry gateway record.
+- [ ] Capture the Expo Go offline photo and audio synchronization validation.
+- [ ] Validate and deliver the completed production Atlas handoff.
+- [x] Audit and consolidate the critical Atlas architecture across mobile, data, security, offline, evidence, telemetry, and intelligence layers.
+- [x] Add the highest-priority resilience and operating-governance capabilities.
+- [x] Validate and deliver the consolidated Atlas architecture update.
